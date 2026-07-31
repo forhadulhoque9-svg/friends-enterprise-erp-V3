@@ -56,7 +56,11 @@ export interface BusinessProfile extends BaseEntity {
   bin: string;
   address: string;
   phone: string;
+  whatsapp?: string;
   logoBase64?: string;
+  invoiceFooter?: string;
+  bankDetails?: string;
+  mobileBanking?: string;
   isDefault: boolean;
 }
 

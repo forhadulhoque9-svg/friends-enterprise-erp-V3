@@ -31,10 +31,10 @@ export default function ReportsModule() {
   const cashBook = useLiveQuery(() => db.cashBook.toArray()) || [];
   const hawlats = useLiveQuery(() => db.hawlats.toArray()) || [];
   const companyIncentives = useLiveQuery(() => db.companyIncentives?.toArray()) || [];
-  const currentCash = useLiveQuery(() => getCashBalance()) || 0;
-  const config = useLiveQuery(() => db.config.get('main'));
-  const compName = config?.companyName || 'Friends Enterprise';
-  const compAddress = config?.address || 'Khatunganj, Chittagong, Bangladesh';
+  const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
+  const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
+  const compAddress = profile?.address || 'তেজগাঁও, ঢাকা';
+  const logo = profile?.logoBase64;
 
 
   // Filter helper
@@ -169,14 +169,18 @@ export default function ReportsModule() {
 
       {/* ----------------- PRINT VIEW (ONLY VISIBLE ON PRINT) ----------------- */}
       <div className="hidden print:block font-sans text-slate-900 bg-white min-h-screen">
-        <div className="text-center pb-4 border-b-2 border-slate-900 mb-6">
-          <h1 className="text-2xl font-black">{compName}</h1>
-          <p className="text-sm font-medium">{compAddress}</p>
-          <h2 className="text-xl font-bold mt-4 underline decoration-slate-400 underline-offset-4">মাসিক আয়-ব্যয় ও লাভ-ক্ষতির বিবরণী</h2>
+        <div className="text-center pb-4 border-b-2 border-slate-900 mb-6 space-y-2">
+          {logo && <img src={logo} alt="Logo" className="h-16 w-auto mx-auto object-contain" referrerPolicy="no-referrer" />}
+          <h1 className="text-2xl font-black uppercase text-slate-900">{compName}</h1>
+          <p className="text-sm font-bold text-slate-600">{compAddress}</p>
+          <div className="flex items-center justify-center gap-4 text-[11px] font-bold text-slate-500">
+            <span>ফোন: {toBanglaNumerals(profile?.phone)}</span>
+          </div>
+          <h2 className="text-xl font-black mt-4 bg-slate-900 text-white inline-block px-6 py-1 rounded-full">মাসিক আয়-ব্যয় ও লাভ-ক্ষতির বিবরণী</h2>
           <p className="text-xs font-bold mt-2">
             তারিখ সীমা: {dateFilter === 'today' ? 'আজ' : dateFilter === 'this_week' ? 'চলতি সপ্তাহ' : dateFilter === 'this_month' ? 'চলতি মাস' : dateFilter === 'custom' ? `${customStartDate} থেকে ${customEndDate}` : 'সব সময়'}
           </p>
-          <p className="text-[10px] text-slate-500 mt-1">প্রিন্ট সময়: {new Date().toLocaleString()}</p>
+          <p className="text-[10px] text-slate-500 mt-1">প্রিন্ট সময়: {new Date().toLocaleString('bn-BD')}</p>
         </div>
 
         <div className="space-y-4">
@@ -292,8 +296,6 @@ export default function ReportsModule() {
         onClose={() => setShowPrintModal(false)}
         title="মাসিক আয়-ব্যয় ও লাভ-ক্ষতির বিবরণী"
         type="pnl"
-        compName={compName}
-        compAddress={compAddress}
         data={{
           totalGrossSales,
           totalSalesReturns,

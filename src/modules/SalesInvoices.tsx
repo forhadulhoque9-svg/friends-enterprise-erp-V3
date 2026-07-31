@@ -39,7 +39,7 @@ function SalesInvoicesContent() {
   const customers = useLiveQuery(() => db.customers.toArray()) || [];
   const products = useLiveQuery(() => db.products.toArray()) || [];
   const companies = useLiveQuery(() => db.companies.toArray()) || [];
-  const businessProfiles = useLiveQuery(() => db.businessProfiles.toArray()) || [];
+  const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
 
   // Sort invoices by date descending safely in memory
   const invoices = useMemo(() => {
@@ -52,13 +52,12 @@ function SalesInvoicesContent() {
   }, [rawInvoices]);
 
   // Business details for print memo
-  const configuredPhone = businessProfiles?.[0]?.phone || '০১৮৩৫৯১২৫৯৭';
-  const configuredOwner = businessProfiles?.[0]?.owner || 'ফরহাদুল হক';
-  const configuredBusinessName = businessProfiles?.[0]?.businessName || 'ফ্রেন্ডস এন্টারপ্রাইজ';
+  const configuredPhone = profile?.phone || '০১৮৩৫৯১২৫৯৭';
+  const configuredOwner = profile?.owner || 'ফরহাদুল হক';
+  const configuredBusinessName = profile?.businessName || 'ফ্রেন্ডস এন্টারপ্রাইজ';
+  const logo = profile?.logoBase64;
 
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
-  const [compAddress] = useState('তেজগাঁও, ঢাকা');
 
   // Filter States
   const todayStr = new Date().toISOString().split('T')[0];
@@ -1217,8 +1216,6 @@ function SalesInvoicesContent() {
           onClose={() => setShowPrintModal(false)}
           title="সেলস ইনভয়েস ও ক্যাশ মেমো"
           type="invoice"
-          compName={compName}
-          compAddress={compAddress}
           data={{
             invoiceNo: selectedInvoice.invoiceNo,
             date: formatBanglaDate(selectedInvoice.date),

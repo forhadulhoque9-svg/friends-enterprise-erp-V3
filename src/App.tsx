@@ -17,7 +17,6 @@ import DemandSheetModule from './modules/demand-sheet/DemandSheetModule';
 import BackupRestore from './modules/BackupRestore';
 import DamageManagement from './modules/DamageManagement';
 import DailyExpenses from './modules/expenses/DailyExpenses';
-import DebugScreen from './components/DebugScreen';
 import { 
   LayoutDashboard, 
   Package, 
@@ -54,16 +53,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ModuleTab>('dashboard');
   const [dbSeeded, setDbSeeded] = useState(false);
 
-  // Profile / Settings states
-  const [compName, setCompName] = useState('Friends Enterprise');
-  const [compPhone, setCompPhone] = useState('01835912597');
-  const [compAddress, setCompAddress] = useState('Khatunganj, Chittagong, Bangladesh');
-  const [logoFile, setLogoFile] = useState<string>('');
-  const [settingsSuccess, setSettingsSuccess] = useState('');
-
   // Live query for configuration and general KPIs
-  const config = useLiveQuery(() => db.config.get('main'));
+  const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
   const cashBal = useLiveQuery(() => getCashBalance());
+
+  const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
 
   // Seed DB & Sync live stores on mount
   useEffect(() => {
@@ -74,48 +68,7 @@ export default function App() {
     runSync();
   }, []);
 
-  // Update form inputs when config loads
-  useEffect(() => {
-    if (config) {
-      setCompName(config.companyName || 'Friends Enterprise');
-      setCompPhone(config.phone || '01835912597');
-      setCompAddress(config.address || 'Khatunganj, Chittagong, Bangladesh');
-      setLogoFile(config.logoBase64 || '');
-    }
-  }, [config]);
 
-  // Handle Logo Upload base64
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        setLogoFile(base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSettingsSuccess('');
-    try {
-      await db.config.put({
-        id: 'main',
-        companyName: compName,
-        phone: compPhone,
-        address: compAddress,
-        logoBase64: logoFile || undefined
-      });
-      setSettingsSuccess('Corporate branding settings updated successfully!');
-      setTimeout(() => setSettingsSuccess(''), 4000);
-    } catch (err) {
-      alert('Failed to save settings: ' + err);
-    }
-  };
-
-  // BACKUP DATABASE: Export all IndexedDB tables to a single JSON file
   const handleBackupDatabase = async () => {
     try {
       const backupData: Record<string, any> = {};
@@ -390,7 +343,7 @@ export default function App() {
             </div>
 
             <div className="hidden md:flex items-center gap-2 text-slate-400 text-xs font-medium">
-              <span>Friends Enterprise ERP</span>
+              <span>{compName} ERP</span>
               <span>/</span>
               <span className="text-slate-900 font-bold capitalize">{activeTab} Console</span>
             </div>
@@ -431,7 +384,6 @@ export default function App() {
 
         {/* Active Stage Renderer */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 print:overflow-visible print:h-auto print:p-0 print:block">
-          <DebugScreen />
           {activeTab === 'dashboard' && <Dashboard onNavigate={(mod) => setActiveTab(mod as any)} />}
           {activeTab === 'products' && <Products />}
           {activeTab === 'customers' && <Customers />}

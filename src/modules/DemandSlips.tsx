@@ -50,11 +50,21 @@ export default function DemandSlips() {
   const demandSheets = useLiveQuery(() => db.demandSheets.toArray()) || [];
   const companies = useLiveQuery(() => db.companies.toArray()) || [];
   const products = useLiveQuery(() => db.products.toArray()) || [];
-  const config = useLiveQuery(() => db.config.get('main'));
 
   // Header State (No Invoice Terms)
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
-  const [myEnterpriseName, setMyEnterpriseName] = useState<string>('Friends Enterprise');
+  const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
+  const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
+  const logo = profile?.logoBase64;
+  const [myEnterpriseName, setMyEnterpriseName] = useState<string>('');
+
+  React.useEffect(() => {
+    if (profile?.businessName) {
+      setMyEnterpriseName(profile.businessName);
+    } else {
+      setMyEnterpriseName('মেসার্স ফাহিম এন্টারপ্রাইজ');
+    }
+  }, [profile]);
   const [demandNo, setDemandNo] = useState<string>(`DS-${Date.now().toString().slice(-6)}`);
   const [demandDate, setDemandDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [remarks, setRemarks] = useState<string>('');
@@ -77,15 +87,6 @@ export default function DemandSlips() {
   const [isSaving, setIsSaving] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printData, setPrintData] = useState<any>(null);
-  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
-  const [compAddress] = useState('তেজগাঁও, ঢাকা');
-
-  // Sync default enterprise name from DB config if available
-  React.useEffect(() => {
-    if (config?.companyName) {
-      setMyEnterpriseName(config.companyName);
-    }
-  }, [config]);
 
   // Selected Company Object & Ledger Balance
   const selectedCompany = useMemo(() => {
@@ -377,7 +378,7 @@ export default function DemandSlips() {
                   type="text"
                   value={myEnterpriseName}
                   onChange={(e) => setMyEnterpriseName(e.target.value)}
-                  placeholder="যেমন: Friends Enterprise"
+                  placeholder={`যেমন: ${compName}`}
                   className="w-full rounded-xl border border-slate-300 bg-white py-2.5 px-3.5 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:outline-none transition shadow-xs"
                   required
                   id="my-enterprise-name-input"
@@ -849,9 +850,10 @@ export default function DemandSlips() {
             <div className="p-8 space-y-6" id="printable-demand-voucher">
               {/* Printable Voucher Header */}
               <div className="border-b-2 border-slate-900 pb-4 flex items-start justify-between">
-                <div>
+                <div className="flex flex-col items-center justify-center text-center w-full">
+                  {logo && <img src={logo} alt="Logo" className="h-12 w-auto object-contain mb-2" referrerPolicy="no-referrer" />}
                   <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
-                    {viewingDemandSheet.businessName || 'Friends Enterprise'}
+                    {viewingDemandSheet.businessName || compName}
                   </h2>
                   <p className="text-xs font-bold text-slate-600 mt-0.5">
                     পাইকারী পরিবেশক ও ডিস্ট্রিবিউশন এজেন্ট
@@ -881,7 +883,7 @@ export default function DemandSlips() {
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-black text-slate-500 uppercase block">আবেদনকারী প্রতিষ্ঠান:</span>
-                  <span className="text-xs font-bold text-slate-900 block">{viewingDemandSheet.businessName || 'Friends Enterprise'}</span>
+                  <span className="text-xs font-bold text-slate-900 block">{viewingDemandSheet.businessName || compName}</span>
                 </div>
               </div>
 
@@ -979,8 +981,6 @@ export default function DemandSlips() {
         onClose={() => setShowPrintModal(false)}
         title="ডিমান্ড স্লিপ ভাউচার"
         type="demand"
-        compName={compName}
-        compAddress={compAddress}
         data={printData}
       />
 

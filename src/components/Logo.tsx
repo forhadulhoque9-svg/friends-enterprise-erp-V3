@@ -8,24 +8,26 @@ interface LogoProps {
 }
 
 export default function Logo({ className = '', iconOnly = false }: LogoProps) {
-  const config = useLiveQuery(() => db.config.get('main'));
+  const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
+  const companyName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
+  const logo = profile?.logoBase64;
 
-  if (config?.logoBase64) {
+  if (logo) {
     return (
       <div className={`flex items-center gap-3 ${className}`}>
         <img 
-          src={config.logoBase64} 
-          alt={config.companyName || 'Friends Enterprise'} 
+          src={logo} 
+          alt={companyName} 
           className={`object-contain rounded ${iconOnly ? 'h-8 w-8' : 'h-10'}`}
           referrerPolicy="no-referrer"
         />
         {!iconOnly && (
           <div className="flex flex-col">
             <span className="font-sans font-bold text-gray-900 tracking-tight leading-none text-base">
-              {config.companyName}
+              {companyName}
             </span>
-            <span className="font-mono text-[10px] text-gray-500 mt-1 leading-none tracking-wider">
-              OFFLINE ERP v3
+            <span className="font-mono text-[10px] text-gray-500 mt-1 leading-none tracking-wider uppercase">
+              ERP v3
             </span>
           </div>
         )}
@@ -55,9 +57,9 @@ export default function Logo({ className = '', iconOnly = false }: LogoProps) {
       {!iconOnly && (
         <div className="flex flex-col">
           <span className="font-sans font-extrabold text-gray-950 tracking-tight leading-none text-base">
-            Friends Enterprise
+            {companyName}
           </span>
-          <span className="font-mono text-[9px] text-emerald-600 font-bold mt-1 tracking-widest">
+          <span className="font-mono text-[9px] text-emerald-600 font-bold mt-1 tracking-widest uppercase">
             ERP v3
           </span>
         </div>

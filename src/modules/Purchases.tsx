@@ -58,8 +58,6 @@ export default function Purchases() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printType, setPrintType] = useState<'ledger' | 'purchase' | 'demand'>('purchase');
   const [printData, setPrintData] = useState<any>(null);
-  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
-  const [compAddress] = useState('তেজগাঁও, ঢাকা');
   
   // Main Module Tabs: 'new-purchase' | 'ledger' | 'history'
   const [activeTab, setActiveTab] = useState<'new-purchase' | 'ledger' | 'history'>('new-purchase');
@@ -1737,8 +1735,6 @@ export default function Purchases() {
         onClose={() => setShowPrintModal(false)}
         title={printType === 'demand' ? 'ডিমান্ড স্লিপ ও ডেলিভারি চালান' : printType === 'ledger' ? 'কোম্পানি স্টেটমেন্ট ও সাপ্লায়ার লেজার' : 'পারচেজ/ক্রয় স্লিপ'}
         type={printType as any}
-        compName={compName}
-        compAddress={compAddress}
         data={printData}
       />
 

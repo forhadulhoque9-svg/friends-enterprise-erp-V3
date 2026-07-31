@@ -453,7 +453,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       if (existing) {
         await db.config.update('main', { phone: newPhone });
       } else {
-        await db.config.add({ id: 'main', companyName: 'Friends Enterprise', phone: newPhone, address: '' });
+        await db.config.add({ id: 'main', companyName: 'মেসার্স ফাহিম এন্টারপ্রাইজ', phone: newPhone, address: '' });
       }
     } catch (err) {
       console.error('Failed to update phone in DB:', err);

@@ -77,20 +77,17 @@ export function formatBanglaDate(dateString: string | Date): string {
 export default function DamageManagement() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printData, setPrintData] = useState<any>(null);
-  const [cName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
-  const [cAddress] = useState('তেজগাঁও, ঢাকা');
 
   // Live Dexie Database Queries
   const damages = useLiveQuery(() => db.companyDamages.toArray()) || [];
   const companies = useLiveQuery(() => db.companies.toArray()) || [];
   const products = useLiveQuery(() => db.products.toArray()) || [];
-  const businessProfiles = useLiveQuery(() => db.businessProfiles.toArray()) || [];
-
-  // Business Branding for Print
-  const businessName = businessProfiles?.[0]?.businessName || 'ফ্রেন্ডস এন্টারপ্রাইজ';
-  const ownerName = businessProfiles?.[0]?.owner || 'ফরহাদুল হক';
-  const phoneNo = businessProfiles?.[0]?.phone || '০১৮৩৫৯১২৫৯৭';
-  const addressStr = businessProfiles?.[0]?.address || 'খাতুনগঞ্জ, চট্টগ্রাম, বাংলাদেশ';
+  const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
+  const businessName = profile?.businessName || 'ফ্রেন্ডস এন্টারপ্রাইজ';
+  const ownerName = profile?.owner || 'ফরহাদুল হক';
+  const phoneNo = profile?.phone || '০১৮৩৫৯১২৫৯৭';
+  const addressStr = profile?.address || 'খাতুনগঞ্জ, চট্টগ্রাম, বাংলাদেশ';
+  const logo = profile?.logoBase64;
 
   // Active Tab View State
   const [activeTab, setActiveTab] = useState<'list' | 'opening' | 'new_entry' | 'triplicate_slip'>('list');
@@ -1380,6 +1377,7 @@ export default function DamageManagement() {
 
                       {/* Header Business Info */}
                       <div className="text-center space-y-0.5">
+                        {logo && <img src={logo} alt="Logo" className="h-10 w-auto mx-auto object-contain mb-1" referrerPolicy="no-referrer" />}
                         <h1 className="text-base font-black text-slate-950 tracking-tight">{businessName}</h1>
                         <p className="text-[11px] text-slate-700 font-bold">{addressStr} | প্রোপ্রাইটর: {ownerName}</p>
                         <p className="text-[10px] text-slate-600 font-semibold">মোবাইল: {phoneNo}</p>
@@ -1485,8 +1483,6 @@ export default function DamageManagement() {
         onClose={() => setShowPrintModal(false)}
         title="ড্যামেজ ও রিটার্ন স্লিপ"
         type="damage"
-        compName={cName}
-        compAddress={cAddress}
         data={printData}
       />
 

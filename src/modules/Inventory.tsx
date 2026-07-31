@@ -92,10 +92,6 @@ export function formatUnitBreakdown(totalPieces: number, cartonSize?: number): s
 export default function Inventory() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printData, setPrintData] = useState<any>(null);
-  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
-  const [compAddress] = useState('তেজগাঁও, ঢাকা');
-
-  // Search and Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('');
@@ -843,8 +839,6 @@ export default function Inventory() {
         onClose={() => setShowPrintModal(false)}
         title="স্টক ইনভেন্টরি ও মালামাল রিপোর্ট"
         type="stock"
-        compName={compName}
-        compAddress={compAddress}
         data={printData}
       />
 

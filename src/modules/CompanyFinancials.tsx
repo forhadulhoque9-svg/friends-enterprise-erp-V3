@@ -36,8 +36,6 @@ export default function CompanyFinancials() {
   // Print Preview State
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printData, setPrintData] = useState<any>(null);
-  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
-  const [compAddress] = useState('তেজগাঁও, ঢাকা');
 
   // Form states - Damages
   const [dmgCompanyId, setDmgCompanyId] = useState('');
@@ -840,8 +838,6 @@ export default function CompanyFinancials() {
         onClose={() => setShowPrintModal(false)}
         title="ড্যামেজ ও পণ্য ফেরত স্লিপ"
         type="damage"
-        compName={compName}
-        compAddress={compAddress}
         data={printData}
       />
 

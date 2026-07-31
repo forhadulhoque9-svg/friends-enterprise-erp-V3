@@ -219,21 +219,23 @@ export async function seedDatabase() {
   // 1. Initial ERP Config
   await db.config.add({
     id: 'main',
-    companyName: 'Friends Enterprise',
-    phone: '01835912597',
-    address: 'Khatunganj, Chittagong, Bangladesh',
+    companyName: 'মেসার্স ফাহিম এন্টারপ্রাইজ',
+    phone: '০১৮৩৫৯১২৫৯৭',
+    address: 'তেজগাঁও, ঢাকা',
   });
 
   // 2. Initial Default Business Profile
   await db.businessProfiles.add({
     id: 'bp_default',
-    businessName: 'Friends Enterprise',
-    owner: 'Proprietor',
+    businessName: 'মেসার্স ফাহিম এন্টারপ্রাইজ',
+    owner: 'ফরহাদুল হক',
     tradeLicense: 'TR-102934-2026',
     bin: '001293847-0102',
-    address: 'Khatunganj, Chittagong',
-    phone: '01835912597',
-    isDefault: true
+    address: 'তেজগাঁও, ঢাকা',
+    phone: '০১৮৩৫৯১২৫৯৭',
+    whatsapp: '০১৮৩৫৯১২৫৯৭',
+    isDefault: true,
+    updatedAt: new Date().toISOString()
   });
 
   // 3. Central System Configurations
