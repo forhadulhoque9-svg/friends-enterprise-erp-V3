@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, recordStockLedger, recordCashTransaction, postSalesInvoice } from '../db/db';
 import { Product, Customer, SalesInvoice, Route, DSRShortLedgerEntry } from '../types';
 import SalesInvoices from './SalesInvoices';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { 
   Plus, 
   Trash2, 
@@ -604,7 +605,9 @@ export default function Sales() {
 
       {/* RENDER INVOICE HISTORY TAB */}
       {activeSubTab === 'history' ? (
-        <SalesInvoices />
+        <ErrorBoundary fallbackTitle="বিক্রয় ইনভয়েস ফিল্টার ও ইতিহাস লোড করতে সমস্যা হয়েছে।">
+          <SalesInvoices />
+        </ErrorBoundary>
       ) : (
 
       /* Main Form Layout Grid */

@@ -1,48 +1,42 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { SalesInvoice, Route, Customer, Salesman, Product } from '../types';
+import { SalesInvoice } from '../types';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { 
   Search, 
   Calendar, 
   MapPin, 
   FileText, 
-  DollarSign, 
   TrendingUp, 
   Wallet, 
-  AlertCircle, 
   Printer, 
   Eye, 
   Trash2, 
   X, 
   Filter, 
   RefreshCw,
-  ShoppingBag,
-  UserCheck,
-  Building2,
   CheckCircle2,
   Coins,
   Undo2,
-  RotateCcw,
   PackageMinus,
-  PackageCheck,
-  Layers,
-  Box
+  PackageCheck
 } from 'lucide-react';
 
 // Helper: Convert numbers to Bangla digits
 export function toBanglaNumerals(num: number | string | undefined | null): string {
-  if (num === undefined || num === null) return '০';
+  if (num === undefined || num === null || num === '') return '০';
   const str = String(num);
   const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
   return str.replace(/[0-9]/g, (digit) => banglaDigits[parseInt(digit, 10)]);
 }
 
 // Helper: Format BDT Currency with Bangla Numerals
-export function formatBanglaCurrency(amount: number): string {
-  if (isNaN(amount) || amount === null || amount === undefined) amount = 0;
-  const isNegative = amount < 0;
-  const formatted = Math.abs(amount).toLocaleString('en-US', {
+export function formatBanglaCurrency(amount: number | string | undefined | null): string {
+  const numericAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+  if (isNaN(numericAmount)) return '৳ ০';
+  const isNegative = numericAmount < 0;
+  const formatted = Math.abs(numericAmount).toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   });
@@ -50,38 +44,52 @@ export function formatBanglaCurrency(amount: number): string {
 }
 
 // Helper: Format Number with Bangla Numerals
-export function formatBanglaNumber(num: number): string {
-  if (isNaN(num) || num === null || num === undefined) num = 0;
-  return toBanglaNumerals(Math.round(num).toLocaleString('en-US'));
+export function formatBanglaNumber(num: number | string | undefined | null): string {
+  const numericVal = typeof num === 'number' ? num : parseFloat(String(num || 0));
+  if (isNaN(numericVal)) return '০';
+  return toBanglaNumerals(Math.round(numericVal).toLocaleString('en-US'));
 }
 
 // Helper: Format Date to Bangla String
-export function formatBanglaDate(dateString: string | Date): string {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return toBanglaNumerals(String(dateString));
+export function formatBanglaDate(dateString: string | Date | undefined | null): string {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return toBanglaNumerals(String(dateString));
 
-  const monthNamesBangla = [
-    'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
-    'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
-  ];
-  
-  const day = date.getDate();
-  const month = monthNamesBangla[date.getMonth()];
-  const year = date.getFullYear();
+    const monthNamesBangla = [
+      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+      'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+    ];
+    
+    const day = date.getDate();
+    const month = monthNamesBangla[date.getMonth()];
+    const year = date.getFullYear();
 
-  return `${toBanglaNumerals(day)} ${month}, ${toBanglaNumerals(year)}`;
+    return `${toBanglaNumerals(day)} ${month}, ${toBanglaNumerals(year)}`;
+  } catch (e) {
+    return String(dateString);
+  }
 }
 
-export default function SalesInvoices() {
-  // Live Dexie Database Queries
-  const invoices = useLiveQuery(() => db.salesInvoices.orderBy('date').reverse().toArray()) || [];
+function SalesInvoicesContent() {
+  // Safe Live Dexie Database Queries
+  const rawInvoices = useLiveQuery(() => db.salesInvoices.toArray()) || [];
   const routes = useLiveQuery(() => db.routes.toArray()) || [];
   const customers = useLiveQuery(() => db.customers.toArray()) || [];
-  const dsrList = useLiveQuery(() => db.salesmen.toArray()) || [];
   const products = useLiveQuery(() => db.products.toArray()) || [];
   const companies = useLiveQuery(() => db.companies.toArray()) || [];
   const businessProfiles = useLiveQuery(() => db.businessProfiles.toArray()) || [];
+
+  // Sort invoices by date descending safely in memory
+  const invoices = useMemo(() => {
+    if (!Array.isArray(rawInvoices)) return [];
+    return [...rawInvoices].sort((a, b) => {
+      const dateA = a?.date ? new Date(a.date).getTime() : 0;
+      const dateB = b?.date ? new Date(b.date).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [rawInvoices]);
 
   // Business details for print memo
   const configuredPhone = businessProfiles?.[0]?.phone || '০১৮৩৫৯১২৫৯৭';
@@ -129,38 +137,49 @@ export default function SalesInvoices() {
     }
   };
 
-  // Filtered Invoices Computation
+  // Filtered Invoices Computation with complete null safety
   const filteredInvoices = useMemo(() => {
+    if (!Array.isArray(invoices)) return [];
     return invoices.filter((inv) => {
+      if (!inv) return false;
+
       // Date Filter
-      if (fromDate && inv.date < fromDate) return false;
-      if (toDate && inv.date > toDate) return false;
+      const invDate = inv.date || '';
+      if (fromDate && invDate < fromDate) return false;
+      if (toDate && invDate > toDate) return false;
 
       // Market / Route Filter
       if (selectedRouteId) {
-        // Match routeId on invoice or match routeName/marketName from customer
         const matchInvoiceRoute = inv.routeId === selectedRouteId;
-        const cust = customers.find(c => c.id === inv.customerId);
+        const cust = Array.isArray(customers) ? customers.find(c => c && c.id === inv.customerId) : null;
         const matchCustomerRoute = cust?.routeId === selectedRouteId;
-        const selectedRoute = routes.find(r => r.id === selectedRouteId);
-        const matchRouteName = selectedRoute && inv.customerName && 
-          (inv.customerName.includes(selectedRoute.routeName) || (selectedRoute.marketName && inv.customerName.includes(selectedRoute.marketName)));
+        const selectedRoute = Array.isArray(routes) ? routes.find(r => r && r.id === selectedRouteId) : null;
+        
+        const routeName = selectedRoute?.routeName || '';
+        const marketName = selectedRoute?.marketName || '';
+        const custName = inv.customerName || '';
+        
+        const matchRouteName = Boolean(
+          routeName && custName && (
+            custName.includes(routeName) || (marketName && custName.includes(marketName))
+          )
+        );
 
         if (!matchInvoiceRoute && !matchCustomerRoute && !matchRouteName) {
           return false;
         }
       }
 
-      // Search Term Filter (Memo / Invoice No, Customer Name, Shop Name, DSR Name)
-      if (searchTerm.trim()) {
+      // Search Term Filter (Memo / Invoice No, Customer Name, Shop Name, DSR Name, Items)
+      if (searchTerm && searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
-        const invNoMatch = inv.invoiceNo?.toLowerCase().includes(query);
-        const custMatch = inv.customerName?.toLowerCase().includes(query);
-        const dsrMatch = inv.dsrName?.toLowerCase().includes(query);
-        const remarksMatch = inv.remarks?.toLowerCase().includes(query);
+        const invNoMatch = (inv.invoiceNo || '').toLowerCase().includes(query);
+        const custMatch = (inv.customerName || '').toLowerCase().includes(query);
+        const dsrMatch = (inv.dsrName || '').toLowerCase().includes(query);
+        const remarksMatch = (inv.remarks || '').toLowerCase().includes(query);
 
         // Check if item name matches
-        const itemMatch = inv.items?.some(i => i.name.toLowerCase().includes(query));
+        const itemMatch = Array.isArray(inv.items) && inv.items.some(i => i && (i.name || '').toLowerCase().includes(query));
 
         if (!invNoMatch && !custMatch && !dsrMatch && !remarksMatch && !itemMatch) {
           return false;
@@ -173,17 +192,24 @@ export default function SalesInvoices() {
 
   // Dynamic Summary Totals
   const totalSales = useMemo(() => {
-    return filteredInvoices.reduce((sum, inv) => sum + (inv.netTotal || 0), 0);
+    if (!Array.isArray(filteredInvoices)) return 0;
+    return filteredInvoices.reduce((sum, inv) => sum + (Number(inv?.netTotal) || 0), 0);
   }, [filteredInvoices]);
 
   const totalCashCollected = useMemo(() => {
-    return filteredInvoices.reduce((sum, inv) => sum + (inv.cashPaid || 0), 0);
+    if (!Array.isArray(filteredInvoices)) return 0;
+    return filteredInvoices.reduce((sum, inv) => sum + (Number(inv?.cashPaid) || 0), 0);
   }, [filteredInvoices]);
 
   const totalDueAmount = useMemo(() => {
+    if (!Array.isArray(filteredInvoices)) return 0;
     return filteredInvoices.reduce((sum, inv) => {
-      const due = inv.dueAmount !== undefined ? inv.dueAmount : Math.max(0, (inv.netTotal || 0) - (inv.cashPaid || 0));
-      return sum + due;
+      const net = Number(inv?.netTotal) || 0;
+      const cash = Number(inv?.cashPaid) || 0;
+      const due = inv?.dueAmount !== undefined && inv?.dueAmount !== null 
+        ? Number(inv.dueAmount) 
+        : Math.max(0, net - cash);
+      return sum + (isNaN(due) ? 0 : due);
     }, 0);
   }, [filteredInvoices]);
 
@@ -760,8 +786,9 @@ export default function SalesInvoices() {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
                     <div className="flex flex-col items-center justify-center space-y-2">
-                      <FileText className="h-8 w-8 text-slate-300" />
-                      <span>কোনো ইনভয়েস পাওয়া যায়নি!</span>
+                      <FileText className="h-10 w-10 text-slate-300" />
+                      <span className="text-sm font-bold text-slate-600">কোনো ইনভয়েস ইতিহাস পাওয়া যায়নি।</span>
+                      <p className="text-xs text-slate-400">নতুন ইনভয়েস তৈরি করলে এখানে ইতিহাস সংরক্ষিত থাকবে।</p>
                     </div>
                   </td>
                 </tr>
@@ -1344,5 +1371,13 @@ export default function SalesInvoices() {
       )}
 
     </div>
+  );
+}
+
+export default function SalesInvoices() {
+  return (
+    <ErrorBoundary fallbackTitle="বিক্রয় ইনভয়েস ফিল্টার ও ইতিহাস লোড করতে সমস্যা হয়েছে।">
+      <SalesInvoicesContent />
+    </ErrorBoundary>
   );
 }
