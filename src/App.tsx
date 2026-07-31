@@ -17,6 +17,7 @@ import DsrModule from './modules/dsr/DsrModule';
 import DemandSheetModule from './modules/demand-sheet/DemandSheetModule';
 import RouteSalesModule from './modules/route-sales/RouteSalesModule';
 import BackupRestore from './modules/BackupRestore';
+import DamageManagement from './modules/DamageManagement';
 import DebugScreen from './components/DebugScreen';
 import { 
   LayoutDashboard, 
@@ -46,7 +47,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 
-type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'financials' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'route-sales' | 'business-profile' | 'settings';
+type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'financials' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'route-sales' | 'business-profile' | 'settings';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ModuleTab>('dashboard');
@@ -298,7 +299,15 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'financials' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-financials"
           >
-            <ShieldAlert className="h-4 w-4" /> Trade Financials
+            <ShieldAlert className="h-4 w-4 text-emerald-600" /> Trade Financials
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('damage')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'damage' ? 'bg-purple-50 text-purple-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-damage"
+          >
+            <ShieldAlert className="h-4 w-4 text-purple-600" /> ড্যামেজ ও ক্লেম (Damage & Claims)
           </button>
 
           <button 
@@ -379,6 +388,7 @@ export default function App() {
                 <option value="route-sales">Route Sales</option>
                 <option value="purchases">Purchases</option>
                 <option value="financials">Financials</option>
+                <option value="damage">ড্যামেজ ও ক্লেম (Damage & Claims)</option>
                 <option value="reports">Financial Reports</option>
                 <option value="hawlat">Hawlat</option>
                 <option value="products">Products</option>
@@ -437,6 +447,7 @@ export default function App() {
           {activeTab === 'purchases' && <Purchases />}
           {activeTab === 'inventory' && <Inventory />}
           {activeTab === 'financials' && <CompanyFinancials />}
+          {activeTab === 'damage' && <DamageManagement />}
           {activeTab === 'hawlat' && <HawlatModule />}
           {activeTab === 'reports' && <ReportsModule />}
           {activeTab === 'dsr' && <DsrModule />}

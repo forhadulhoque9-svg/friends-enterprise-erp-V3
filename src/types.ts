@@ -726,10 +726,17 @@ export interface CompanyDamage extends BaseEntity {
   productId: string;
   productName: string;
   qty: number;
+  cartons?: number;
+  loosePcs?: number;
+  unitPrice?: number;
   damageValue: number;
   status: 'Pending' | 'Approved' | 'Paid';
   date: string;
   remarks: string;
+  isOpeningStock?: boolean;
+  claimNo?: string;
+  driverName?: string;
+  vehicleNo?: string;
 }
 
 export type IncentiveType = 'Target Incentive' | 'Online Order Incentive' | 'Scheme Bonus' | 'Festival Bonus' | 'Special Bonus' | 'Manual Adjustment';
