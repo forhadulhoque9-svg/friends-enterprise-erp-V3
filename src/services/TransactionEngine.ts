@@ -704,9 +704,19 @@ export const TransactionEngine = {
     productId: string | undefined, 
     productQty: number, 
     remarks: string,
-    date: string
+    date: string,
+    extraDetails?: {
+      cartons?: number;
+      loosePcs?: number;
+      pcsPerCarton?: number;
+      ratePerCarton?: number;
+      ratePerPcs?: number;
+      totalValue?: number;
+      bankName?: string;
+      bankSlipNo?: string;
+    }
   ): Promise<void> {
-    const payload = { hawlatId, type, cashAmount, productId, productQty, remarks, date };
+    const payload = { hawlatId, type, cashAmount, productId, productQty, remarks, date, extraDetails };
     try {
       await db.transaction('rw', [
         db.hawlats, 
@@ -722,53 +732,126 @@ export const TransactionEngine = {
         const txId = `hawlat_tx_${Date.now()}`;
         const productBalances = { ...hawlat.productBalances };
 
-        // 1. Calculate updated balances
-        const oldCashBalance = hawlat.cashBalance;
+        const oldCashBalance = hawlat.cashBalance || 0;
+        const oldCustodyBalance = hawlat.custodyBalance || 0;
         let newCashBalance = oldCashBalance;
-        if (cashAmount !== 0) {
-          newCashBalance += cashAmount; 
-        }
+        let newCustodyBalance = oldCustodyBalance;
 
-        let pBalAfter = 0;
-        if (productId) {
-          const currentPBal = productBalances[productId] || 0;
-          productBalances[productId] = currentPBal + productQty; 
-          pBalAfter = productBalances[productId];
-        }
-
-        // 2. Adjust general system Cash or Stock if it's an flow-in/flow-out of our ERP
-        if (cashAmount !== 0 && (type === 'Cash_Lend' || type === 'Cash_Receive' || type === 'Cash_Settle' || type === 'Mixed_Settle')) {
-          const inAmt = cashAmount > 0 ? cashAmount : 0;
-          const outAmt = cashAmount < 0 ? -cashAmount : 0;
-
+        // Handle Custody Deposit
+        if (type === 'Cash_Custody_Deposit') {
+          if (cashAmount > 0) {
+            newCustodyBalance = oldCustodyBalance + cashAmount;
+            await recordCashTransaction(
+              date,
+              'Hawlat_Custody_Out',
+              txId,
+              0,
+              cashAmount,
+              `দোকানে টাকা গচ্ছিত রাখা (${hawlat.name}): ${remarks || 'নিরাপদ আমানত'}`
+            );
+          }
+        } 
+        // Handle Bank Deposit & Settle
+        else if (type === 'Bank_Deposit_Settle') {
+          if (cashAmount > 0) {
+            newCustodyBalance = Math.max(0, oldCustodyBalance - cashAmount);
+            const bankInfoStr = `${extraDetails?.bankName || 'ব্যাংক'} - স্লিপ: ${extraDetails?.bankSlipNo || 'N/A'}`;
+            await recordCashTransaction(
+              date,
+              'Bank_Deposit_In',
+              txId,
+              cashAmount,
+              0,
+              `গচ্ছিত টাকা ব্যাংকে জমা (${bankInfoStr}) - হাওলাদার: ${hawlat.name} (${remarks})`
+            );
+          }
+        } 
+        // Regular Cash Lending / Borrowing
+        else if (type === 'Cash_Lend') {
+          newCashBalance = oldCashBalance - Math.abs(cashAmount);
           await recordCashTransaction(
             date,
             'Hawlat_Cash',
             txId,
-            inAmt,
-            outAmt,
-            `Hawlat (${hawlat.name}) - ${remarks}`
+            0,
+            Math.abs(cashAmount),
+            `হাওলাত প্রদান (${hawlat.name}): ${remarks}`
           );
+        } else if (type === 'Cash_Receive') {
+          newCashBalance = oldCashBalance + Math.abs(cashAmount);
+          await recordCashTransaction(
+            date,
+            'Hawlat_Cash',
+            txId,
+            Math.abs(cashAmount),
+            0,
+            `হাওলাত গ্রহণ (${hawlat.name}): ${remarks}`
+          );
+        } else if (type === 'Cash_Settle' || type === 'Mixed_Settle') {
+          newCashBalance += cashAmount;
+          if (cashAmount !== 0) {
+            const inAmt = cashAmount > 0 ? cashAmount : 0;
+            const outAmt = cashAmount < 0 ? Math.abs(cashAmount) : 0;
+            await recordCashTransaction(
+              date,
+              'Hawlat_Cash',
+              txId,
+              inAmt,
+              outAmt,
+              `হাওলাত ক্যাশ সমন্বয় (${hawlat.name}): ${remarks}`
+            );
+          }
         }
 
+        let pBalAfter = 0;
         let prodName = '';
-        if (productId && productQty !== 0 && (type === 'Product_Lend' || type === 'Product_Receive' || type === 'Product_Settle' || type === 'Mixed_Settle')) {
+        if (productId) {
+          const currentPBal = productBalances[productId] || 0;
+          let deltaBal = 0;
+
+          if (type === 'Product_Receive') { // We borrowed products (Stock IN to ERP)
+            deltaBal = productQty; // We owe them products (+)
+          } else if (type === 'Product_Lend') { // We lent products (Stock OUT from ERP)
+            deltaBal = -productQty; // They owe us products (-)
+          } else if (type === 'Product_Settle' || type === 'Mixed_Settle') {
+            deltaBal = productQty;
+          }
+
+          productBalances[productId] = currentPBal + deltaBal;
+          pBalAfter = productBalances[productId];
+
           const prod = await db.products.get(productId);
           if (prod) {
             prodName = prod.name;
-            const oldStock = prod.stock;
-            const newStock = oldStock + productQty;
-            await db.products.update(productId, {
-              stock: newStock
-            });
+            const pcsPerCtn = prod.pcsPerCarton || extraDetails?.pcsPerCarton || 1;
+            const oldStockInPcs = prod.stockInPcs !== undefined ? prod.stockInPcs : ((prod.stock || 0) * pcsPerCtn);
+            
+            let stockDeltaPcs = 0;
+            if (type === 'Product_Receive') { // Stock IN
+              stockDeltaPcs = productQty;
+            } else if (type === 'Product_Lend') { // Stock OUT
+              stockDeltaPcs = -productQty;
+            } else if (type === 'Product_Settle') {
+              stockDeltaPcs = productQty;
+            }
 
-            await AuditRepository.log(
-              'ADJUST',
-              'products',
-              productId,
-              { stock: oldStock },
-              { stock: newStock }
-            );
+            if (stockDeltaPcs !== 0) {
+              const newStockInPcs = Math.max(0, oldStockInPcs + stockDeltaPcs);
+              const newStockCartons = Math.floor(newStockInPcs / pcsPerCtn);
+
+              await db.products.update(productId, {
+                stock: newStockCartons,
+                stockInPcs: newStockInPcs
+              });
+
+              await AuditRepository.log(
+                'ADJUST',
+                'products',
+                productId,
+                { stockInPcs: oldStockInPcs },
+                { stockInPcs: newStockInPcs }
+              );
+            }
           }
         }
 
@@ -784,14 +867,24 @@ export const TransactionEngine = {
           productId,
           productName: prodName || undefined,
           productQty,
+          cartons: extraDetails?.cartons,
+          loosePcs: extraDetails?.loosePcs,
+          pcsPerCarton: extraDetails?.pcsPerCarton,
+          ratePerCarton: extraDetails?.ratePerCarton,
+          ratePerPcs: extraDetails?.ratePerPcs,
+          totalValue: extraDetails?.totalValue,
+          bankName: extraDetails?.bankName,
+          bankSlipNo: extraDetails?.bankSlipNo,
           remarks,
           cashBalanceAfter: newCashBalance,
+          custodyBalanceAfter: newCustodyBalance,
           productBalanceAfter: pBalAfter
         });
 
         // 4. Update Hawlat master record
         await db.hawlats.update(hawlatId, {
           cashBalance: newCashBalance,
+          custodyBalance: newCustodyBalance,
           productBalances
         });
 
@@ -808,8 +901,8 @@ export const TransactionEngine = {
           'UPDATE',
           'hawlats',
           hawlatId,
-          { cashBalance: oldCashBalance },
-          { cashBalance: newCashBalance }
+          { cashBalance: oldCashBalance, custodyBalance: oldCustodyBalance },
+          { cashBalance: newCashBalance, custodyBalance: newCustodyBalance }
         );
       });
     } catch (error) {

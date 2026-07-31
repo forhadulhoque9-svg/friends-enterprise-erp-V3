@@ -347,7 +347,9 @@ export type HawlatTransactionType =
   | 'Product_Receive'
   | 'Cash_Settle'
   | 'Product_Settle'
-  | 'Mixed_Settle';
+  | 'Mixed_Settle'
+  | 'Cash_Custody_Deposit'
+  | 'Bank_Deposit_Settle';
 
 export interface HawlatLedgerEntry extends StandardLedgerEntry {
   hawlatId: string;
@@ -356,7 +358,16 @@ export interface HawlatLedgerEntry extends StandardLedgerEntry {
   productId?: string;
   productName?: string;
   productQty: number;
+  cartons?: number;
+  loosePcs?: number;
+  pcsPerCarton?: number;
+  ratePerCarton?: number;
+  ratePerPcs?: number;
+  totalValue?: number;
+  bankName?: string;
+  bankSlipNo?: string;
   cashBalanceAfter: number;
+  custodyBalanceAfter?: number;
   productBalanceAfter: number;
   // Compatibility fields
   date: string;
@@ -519,8 +530,11 @@ export interface ReturnItem extends BaseEntity {
 export interface Hawlat extends BaseEntity {
   name: string;
   phone: string;
+  address?: string;
   remarks: string;
   cashBalance: number;             // Aggregate cash owed. Positive: we owe them; Negative: they owe us
+  custodyBalance?: number;         // Cash held in custody by this hawlat contact
+  openingCashBalance?: number;     // Initial opening balance
   productBalances: Record<string, number>; // Maps productId to quantities owed
 }
 

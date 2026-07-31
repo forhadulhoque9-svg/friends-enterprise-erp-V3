@@ -332,9 +332,19 @@ export async function postHawlatTransaction(
   productId: string | undefined, 
   productQty: number, 
   remarks: string,
-  date: string
+  date: string,
+  extraDetails?: {
+    cartons?: number;
+    loosePcs?: number;
+    pcsPerCarton?: number;
+    ratePerCarton?: number;
+    ratePerPcs?: number;
+    totalValue?: number;
+    bankName?: string;
+    bankSlipNo?: string;
+  }
 ): Promise<void> {
-  return TransactionEngine.postHawlatTransaction(hawlatId, type, cashAmount, productId, productQty, remarks, date);
+  return TransactionEngine.postHawlatTransaction(hawlatId, type, cashAmount, productId, productQty, remarks, date, extraDetails);
 }
 
 export async function settleHawlatDebt(
