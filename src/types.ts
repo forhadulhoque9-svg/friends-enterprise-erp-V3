@@ -310,7 +310,7 @@ export type StockLedgerType =
 
 export interface StockLedgerEntry extends StandardLedgerEntry {
   productId: string;              // Linked Product FK
-  productName: string;
+  productName?: string;
   qtyIn: number;                  // Quantity received
   qtyOut: number;                 // Quantity sold/transferred
   // Compatibility fields
@@ -419,6 +419,9 @@ export interface SalesInvoice extends BaseEntity {
   dueAmount?: number;              // Remaining accounts receivable added to outstanding
   isMasterInvoice?: boolean;       // Master Load / Consolidated Delivery Invoice flag
   customerDuesBreakdown?: CustomerDueBreakdown[]; // Multiple Customer Due allocations
+  totalReturnedAmount?: number;    // Accumulated returned items valuation
+  isReturnProcessed?: boolean;     // End of day return reconciliation flag
+  returnDate?: string;             // Last return entry date
   remarks: string;
   items: SalesInvoiceItem[];       // Embedded records for Dexie lookup
   // Compatibility fields
@@ -448,6 +451,11 @@ export interface SalesInvoiceItem extends BaseEntity {
   itemTotal?: number;              // Quantity * rate
   netProfit?: number;              // Exact margin calculation: itemTotal - commissionAmount - (quantity * edp)
   commissionType?: 'Fixed' | 'Percentage';
+  returnedQty?: number;            // Quantity returned by customer (in pcs)
+  returnedCartons?: number;        // Returned cartons count
+  returnedLoosePcs?: number;       // Returned loose pcs count
+  returnedAmount?: number;         // Monetary value of returned pcs
+  netQty?: number;                 // Net sold quantity = qty - returnedQty
   actualMargin?: number;
 }
 
@@ -514,6 +522,7 @@ export interface Return extends BaseEntity {
   date: string;
   totalRefundAmount: number;
   paymentMethod: string;           // Cash, Ledger Adjust, etc.
+  remarks?: string;
 }
 
 export interface ReturnItem extends BaseEntity {

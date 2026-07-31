@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { SalesInvoice, Route, Customer, Salesman } from '../types';
+import { SalesInvoice, Route, Customer, Salesman, Product } from '../types';
 import { 
   Search, 
   Calendar, 
@@ -21,7 +21,13 @@ import {
   UserCheck,
   Building2,
   CheckCircle2,
-  Coins
+  Coins,
+  Undo2,
+  RotateCcw,
+  PackageMinus,
+  PackageCheck,
+  Layers,
+  Box
 } from 'lucide-react';
 
 // Helper: Convert numbers to Bangla digits
@@ -73,6 +79,7 @@ export default function SalesInvoices() {
   const routes = useLiveQuery(() => db.routes.toArray()) || [];
   const customers = useLiveQuery(() => db.customers.toArray()) || [];
   const dsrList = useLiveQuery(() => db.salesmen.toArray()) || [];
+  const products = useLiveQuery(() => db.products.toArray()) || [];
   const businessProfiles = useLiveQuery(() => db.businessProfiles.toArray()) || [];
 
   // Business details for print memo
@@ -93,6 +100,11 @@ export default function SalesInvoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [actionSuccess, setActionSuccess] = useState<string>('');
+
+  // Invoice Product Return & EOD Reconciliation States
+  const [returnInvoice, setReturnInvoice] = useState<SalesInvoice | null>(null);
+  const [returnQuantities, setReturnQuantities] = useState<{ [productId: string]: { cartons: number; loosePcs: number } }>({});
+  const [isSavingReturn, setIsSavingReturn] = useState<boolean>(false);
 
   // Quick Preset Handlers
   const handlePresetDate = (type: 'today' | 'yesterday' | 'this_month' | 'all') => {
@@ -174,6 +186,159 @@ export default function SalesInvoices() {
     }, 0);
   }, [filteredInvoices]);
 
+  // Open Return Goods Modal
+  const handleOpenReturnModal = (inv: SalesInvoice) => {
+    const initialQtys: { [productId: string]: { cartons: number; loosePcs: number } } = {};
+    if (inv.items) {
+      inv.items.forEach((item) => {
+        initialQtys[item.productId] = {
+          cartons: item.returnedCartons || 0,
+          loosePcs: item.returnedLoosePcs || (item.returnedQty && !item.returnedCartons ? item.returnedQty : 0)
+        };
+      });
+    }
+    setReturnQuantities(initialQtys);
+    setReturnInvoice(inv);
+  };
+
+  // Handle Save Returned Goods & Central Warehouse Stock Sync
+  const handleSaveReturn = async () => {
+    if (!returnInvoice) return;
+
+    try {
+      setIsSavingReturn(true);
+      let totalReturnedVal = 0;
+      let newGrossSales = 0;
+
+      const updatedItems = returnInvoice.items.map((item) => {
+        const p = products.find(prod => prod.id === item.productId);
+        const pcsPerCtn = p?.pcsPerCarton || p?.cartonSize || 1;
+        const entry = returnQuantities[item.productId] || { cartons: 0, loosePcs: 0 };
+        
+        // Calculate returned pcs (constrained to not exceed original delivered qty)
+        const retPcs = Math.min(item.qty, Math.max(0, (entry.cartons || 0) * pcsPerCtn + (entry.loosePcs || 0)));
+        const netQty = Math.max(0, item.qty - retPcs);
+        const itemNetTotal = netQty * item.price;
+        const itemReturnedValue = retPcs * item.price;
+
+        totalReturnedVal += itemReturnedValue;
+        newGrossSales += itemNetTotal;
+
+        return {
+          ...item,
+          returnedQty: retPcs,
+          returnedCartons: entry.cartons || 0,
+          returnedLoosePcs: entry.loosePcs || 0,
+          returnedAmount: itemReturnedValue,
+          netQty: netQty,
+          total: itemNetTotal
+        };
+      });
+
+      const newSubTotal = newGrossSales;
+      const newNetTotal = Math.max(0, newSubTotal - (returnInvoice.discount || 0));
+      const newDueAmount = Math.max(0, newNetTotal - (returnInvoice.cashPaid || 0));
+
+      // 1. Sync & Return Stock back to Central Warehouse Inventory
+      for (const item of returnInvoice.items) {
+        const entry = returnQuantities[item.productId] || { cartons: 0, loosePcs: 0 };
+        const p = products.find(prod => prod.id === item.productId);
+        const pcsPerCtn = p?.pcsPerCarton || p?.cartonSize || 1;
+        const newRetPcs = Math.min(item.qty, Math.max(0, (entry.cartons || 0) * pcsPerCtn + (entry.loosePcs || 0)));
+        const prevRetPcs = item.returnedQty || 0;
+        const deltaRetPcs = newRetPcs - prevRetPcs;
+
+        if (deltaRetPcs !== 0 && p && p.id) {
+          const currentStk = p.stock || p.stockInPcs || 0;
+          const updatedStk = Math.max(0, currentStk + deltaRetPcs);
+          
+          await db.products.update(p.id, {
+            stock: updatedStk,
+            stockInPcs: updatedStk
+          });
+
+          // Record stock ledger entry for returned goods
+          if (deltaRetPcs > 0) {
+            await db.stockLedgers.add({
+              id: `stk_ret_${Date.now()}_${p.id}`,
+              productId: p.id,
+              productName: p.name || item.name,
+              date: todayStr,
+              type: 'Return',
+              refId: returnInvoice.id,
+              qtyIn: deltaRetPcs,
+              qtyOut: 0,
+              balance: updatedStk,
+              remarks: `চালান #${returnInvoice.invoiceNo} পণ্য ফেরত সমন্বয় (গুদামে যুক্ত ${toBanglaNumerals(deltaRetPcs)} পিস)`
+            });
+          }
+        }
+      }
+
+      // 2. Audit Trail Record in db.returns
+      await db.returns.add({
+        id: `ret_${Date.now()}_${returnInvoice.id}`,
+        returnNo: `RET-${returnInvoice.invoiceNo}`,
+        transactionId: returnInvoice.id,
+        returnType: 'Sales_Return',
+        customerId: returnInvoice.customerId,
+        date: todayStr,
+        totalRefundAmount: totalReturnedVal,
+        paymentMethod: 'Stock_Adjustment',
+        remarks: `চালান #${returnInvoice.invoiceNo} পণ্য ফেরত ও এন্ড-অব-ডে সমন্বয়`
+      });
+
+      // 3. Update Sales Invoice Record with new net totals
+      await db.salesInvoices.update(returnInvoice.id, {
+        items: updatedItems,
+        subTotal: newSubTotal,
+        netTotal: newNetTotal,
+        dueAmount: newDueAmount,
+        totalReturnedAmount: totalReturnedVal,
+        isReturnProcessed: true,
+        returnDate: todayStr
+      });
+
+      // 4. Adjust Customer Ledger Balance if due changed
+      if (returnInvoice.customerId) {
+        const cust = customers.find(c => c.id === returnInvoice.customerId);
+        if (cust) {
+          const oldDue = returnInvoice.dueAmount !== undefined ? returnInvoice.dueAmount : Math.max(0, (returnInvoice.netTotal || 0) - (returnInvoice.cashPaid || 0));
+          const dueDiff = newDueAmount - oldDue; // Negative value if due decreased
+          if (dueDiff !== 0) {
+            const currentCustBal = cust.outstandingBalance || 0;
+            const updatedCustBal = Math.max(0, currentCustBal + dueDiff);
+            
+            await db.customers.update(cust.id, {
+              outstandingBalance: updatedCustBal
+            });
+
+            await db.customerLedgers.add({
+              id: `cl_ret_adj_${Date.now()}_${cust.id}`,
+              customerId: cust.id,
+              date: todayStr,
+              type: 'Return',
+              refId: returnInvoice.id,
+              debit: 0,
+              credit: Math.abs(dueDiff),
+              balance: updatedCustBal,
+              remarks: `চালান #${returnInvoice.invoiceNo} পণ্য ফেরত সমন্বয় (বাকি হ্রাস)`
+            });
+          }
+        }
+      }
+
+      setActionSuccess('স্টক সমন্বয় সফল হয়েছে! ফেরতকৃত পণ্য সেন্ট্রাল গোডাউনের স্টকে যোগ করা হয়েছে এবং চালানের নিট বিক্রি ও বাকি আপডেট হয়েছে।');
+      setReturnInvoice(null);
+      setTimeout(() => setActionSuccess(''), 4000);
+
+    } catch (err: any) {
+      alert('পণ্য ফেরত ও স্টক সমন্বয়ে সমস্যা হয়েছে: ' + err.message);
+    } finally {
+      setIsSavingReturn(false);
+    }
+  };
+
   // Delete Invoice Action
   const handleDeleteInvoice = async (invoiceId: string, invoiceNo: string) => {
     if (!confirm(`আপনি কি নিশ্চিত যে ইনভয়েস "${invoiceNo}" স্থায়ীভাবে মুছে ফেলতে চান?`)) {
@@ -211,10 +376,10 @@ export default function SalesInvoices() {
           </div>
           <div>
             <h1 className="text-xl font-black text-slate-900 font-sans tracking-tight">
-              বিক্রয় ইনভয়েস ও বিক্রয় ইতিহাস (Sales Invoices History)
+              বিক্রয় ইনভয়েস, ফেরত ও স্টক সমন্বয় (Sales Invoices & Returns)
             </h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              তারিখ, মার্কেট/রুট ও কাস্টমার অনুযায়ী ফিল্টার করে মোট বিক্রি, নগদ পাওনা ও বাকি পর্যবেক্ষণ করুন।
+              তারিখ ও রুট ফিল্টার করে বিক্রয় তথ্য পর্যবেক্ষণ, চালান ভিত্তিক পণ্য ফেরত এন্ট্রি এবং অটোমেটিক স্টক সমন্বয় করুন।
             </p>
           </div>
         </div>
@@ -232,7 +397,7 @@ export default function SalesInvoices() {
         {/* Card 1: Total Sales */}
         <div className="bg-gradient-to-br from-emerald-800 to-teal-900 text-white rounded-2xl p-5 shadow-sm space-y-2 relative overflow-hidden border border-emerald-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-200 tracking-wide uppercase">মোট বিক্রি (Total Sales)</span>
+            <span className="text-xs font-bold text-emerald-200 tracking-wide uppercase">মোট বিক্রি (Net Sales)</span>
             <div className="p-2 bg-emerald-950/60 rounded-lg text-emerald-300">
               <TrendingUp className="h-5 w-5" />
             </div>
@@ -241,7 +406,7 @@ export default function SalesInvoices() {
             {formatBanglaCurrency(totalSales)}
           </div>
           <p className="text-[11px] text-emerald-200/80 font-medium">
-            ফিল্টারকৃত {toBanglaNumerals(filteredInvoices.length)} টি মেমোর সর্বমোট বিক্রির সমষ্টি
+            ফিল্টারকৃত {toBanglaNumerals(filteredInvoices.length)} টি মেমোর নিট বিক্রির সমষ্টি
           </p>
         </div>
 
@@ -420,8 +585,8 @@ export default function SalesInvoices() {
       </div>
 
       {actionSuccess && (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs font-bold text-emerald-800 flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-xs">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
           <span>{actionSuccess}</span>
         </div>
       )}
@@ -448,7 +613,7 @@ export default function SalesInvoices() {
                 <th className="py-3 px-4 text-right">মোট বিক্রি (Net)</th>
                 <th className="py-3 px-4 text-right">নগদ আদায়</th>
                 <th className="py-3 px-4 text-right">অবশিষ্ট বাকি</th>
-                <th className="py-3 px-4 text-center">পেমেন্ট মেথড</th>
+                <th className="py-3 px-4 text-center">ফেরত স্ট্যাটাস</th>
                 <th className="py-3 px-4 text-center">অ্যাকশন</th>
               </tr>
             </thead>
@@ -456,6 +621,7 @@ export default function SalesInvoices() {
               {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((inv) => {
                   const due = inv.dueAmount !== undefined ? inv.dueAmount : Math.max(0, (inv.netTotal || 0) - (inv.cashPaid || 0));
+                  const hasReturns = inv.isReturnProcessed || (inv.totalReturnedAmount && inv.totalReturnedAmount > 0);
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/80 transition">
                       
@@ -509,23 +675,32 @@ export default function SalesInvoices() {
                         )}
                       </td>
 
-                      {/* Payment Method Badge */}
+                      {/* Return Badge */}
                       <td className="py-3 px-4 text-center">
-                        <span className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                          due === 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                          inv.cashPaid > 0 ? 'bg-amber-50 text-amber-800 border-amber-200' :
-                          'bg-rose-50 text-rose-800 border-rose-200'
-                        }`}>
-                          {inv.paymentMethod || (due === 0 ? 'Cash' : inv.cashPaid > 0 ? 'Partial' : 'Due')}
-                        </span>
+                        {hasReturns ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
+                            <Undo2 className="h-3 w-3" /> ফেরত সমন্বিত ({formatBanglaCurrency(inv.totalReturnedAmount || 0)})
+                          </span>
+                        ) : (
+                          <span className="inline-block text-[10px] font-medium text-slate-400">
+                            কোনো ফেরত নেই
+                          </span>
+                        )}
                       </td>
 
                       {/* Actions */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button 
+                            onClick={() => handleOpenReturnModal(inv)}
+                            className="p-1.5 text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                            title="পণ্য ফেরত এন্ট্রি (Return Goods)"
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </button>
+                          <button 
                             onClick={() => setSelectedInvoice(inv)}
-                            className="p-1.5 text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition"
+                            className="p-1.5 text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                             title="মেমো বিস্তারিত দেখুন"
                           >
                             <Eye className="h-4 w-4" />
@@ -535,7 +710,7 @@ export default function SalesInvoices() {
                               setSelectedInvoice(inv);
                               setTimeout(() => window.print(), 200);
                             }}
-                            className="p-1.5 text-slate-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                            className="p-1.5 text-slate-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition cursor-pointer"
                             title="মেমো প্রিন্ট করুন"
                           >
                             <Printer className="h-4 w-4" />
@@ -568,6 +743,279 @@ export default function SalesInvoices() {
           </table>
         </div>
       </div>
+
+      {/* ====================================================
+          INVOICE PRODUCT RETURNS & EOD RECONCILIATION MODAL
+         ==================================================== */}
+      {returnInvoice && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6">
+            
+            {/* Return Modal Header */}
+            <div className="flex items-center justify-between p-4 bg-emerald-900 text-white border-b border-emerald-950">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-800/80 rounded-lg">
+                  <Undo2 className="h-5 w-5 text-emerald-200" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-sm">
+                    চালান ভিত্তিক পণ্য ফেরত এন্ট্রি ও স্টক সমন্বয় (Invoice Return & EOD Reconciliation)
+                  </h2>
+                  <p className="text-[11px] text-emerald-200/90 font-medium">
+                    কাস্টমার থেকে ফেরত আসা পণ্য এন্ট্রি করুন। অটোমেটিক চালানের নিট বিক্রি ও গুদামের স্টক সমন্বয় হবে।
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setReturnInvoice(null)}
+                className="text-emerald-300 hover:text-white p-1 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto text-xs">
+              
+              {/* Invoice Summary Header */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-slate-400 font-semibold text-[10px] block">চালান নম্বর (Invoice No):</span>
+                  <span className="font-black text-sm text-emerald-900 font-mono">{returnInvoice.invoiceNo}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold text-[10px] block">কাস্টমার / মার্কেট:</span>
+                  <span className="font-bold text-slate-900 text-xs">{returnInvoice.customerName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold text-[10px] block">ডিএসআর / বিক্রেতা:</span>
+                  <span className="font-bold text-slate-800">{returnInvoice.dsrName || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold text-[10px] block">চালান তারিখ:</span>
+                  <span className="font-bold text-slate-900">{formatBanglaDate(returnInvoice.date)}</span>
+                </div>
+              </div>
+
+              {/* Items Table for Return Entry */}
+              <div>
+                <h3 className="font-bold text-xs uppercase text-slate-700 mb-2.5 flex items-center gap-1.5">
+                  <PackageMinus className="h-4 w-4 text-emerald-700" />
+                  চালুকৃত ও ফেরতকৃত মালের তালিকা
+                </h3>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/90 text-[11px] font-bold uppercase text-slate-700 border-b border-slate-200">
+                        <th className="py-2.5 px-3">পণ্য ও একক দর</th>
+                        <th className="py-2.5 px-3 text-center">চালুকৃত মাল (Delivered)</th>
+                        <th className="py-2.5 px-3 text-center bg-amber-50 text-amber-900 border-x border-amber-200">
+                          ফেরতকৃত মাল এন্ট্রি (Return Qty)
+                        </th>
+                        <th className="py-2.5 px-3 text-center">প্রকৃত বিক্রি (Net Sold)</th>
+                        <th className="py-2.5 px-3 text-right">প্রকৃত বিক্রয় মূল্য</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {returnInvoice.items?.map((item) => {
+                        const p = products.find(prod => prod.id === item.productId);
+                        const pcsPerCtn = p?.pcsPerCarton || p?.cartonSize || 1;
+                        
+                        const deliveredCartons = Math.floor(item.qty / pcsPerCtn);
+                        const deliveredLoose = item.qty % pcsPerCtn;
+
+                        const retState = returnQuantities[item.productId] || { cartons: 0, loosePcs: 0 };
+                        const retPcs = Math.min(item.qty, Math.max(0, (retState.cartons || 0) * pcsPerCtn + (retState.loosePcs || 0)));
+                        
+                        const netSoldPcs = Math.max(0, item.qty - retPcs);
+                        const netSoldCartons = Math.floor(netSoldPcs / pcsPerCtn);
+                        const netSoldLoose = netSoldPcs % pcsPerCtn;
+                        const netSoldAmount = netSoldPcs * item.price;
+
+                        return (
+                          <tr key={item.productId} className="hover:bg-slate-50/80 transition">
+                            
+                            {/* Product Name & Price */}
+                            <td className="py-3 px-3">
+                              <div className="font-bold text-slate-900">{item.name}</div>
+                              <div className="text-[10px] text-slate-500 font-semibold">
+                                দর: {formatBanglaCurrency(item.price)} / পিস ({toBanglaNumerals(pcsPerCtn)} পিসে ১ কার্টন)
+                              </div>
+                            </td>
+
+                            {/* Delivered Quantity */}
+                            <td className="py-3 px-3 text-center font-bold text-slate-700">
+                              <div>{formatBanglaNumber(item.qty)} পিস</div>
+                              {pcsPerCtn > 1 && (
+                                <div className="text-[10px] text-slate-500 font-normal">
+                                  ({toBanglaNumerals(deliveredCartons)} কার্টন {deliveredLoose > 0 ? `${toBanglaNumerals(deliveredLoose)} পিস` : ''})
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Returned Qty Input Fields */}
+                            <td className="py-3 px-3 bg-amber-50/50 border-x border-amber-100">
+                              <div className="flex items-center justify-center gap-2">
+                                {pcsPerCtn > 1 && (
+                                  <div className="space-y-0.5">
+                                    <span className="text-[9px] font-bold text-amber-900 block">ফেরত কার্টন:</span>
+                                    <input 
+                                      type="number"
+                                      min="0"
+                                      max={deliveredCartons}
+                                      value={retState.cartons ?? 0}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        setReturnQuantities(prev => ({
+                                          ...prev,
+                                          [item.productId]: {
+                                            cartons: val,
+                                            loosePcs: prev[item.productId]?.loosePcs || 0
+                                          }
+                                        }));
+                                      }}
+                                      className="w-16 bg-white border border-amber-300 rounded-lg px-2 py-1 text-center text-xs font-black text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] font-bold text-amber-900 block">
+                                    {pcsPerCtn > 1 ? 'লুজ পিস:' : 'ফেরত পিস:'}
+                                  </span>
+                                  <input 
+                                    type="number"
+                                    min="0"
+                                    max={pcsPerCtn > 1 ? pcsPerCtn - 1 : item.qty}
+                                    value={retState.loosePcs ?? 0}
+                                    onChange={(e) => {
+                                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                                      setReturnQuantities(prev => ({
+                                        ...prev,
+                                        [item.productId]: {
+                                          cartons: prev[item.productId]?.cartons || 0,
+                                          loosePcs: val
+                                        }
+                                      }));
+                                    }}
+                                    className="w-16 bg-white border border-amber-300 rounded-lg px-2 py-1 text-center text-xs font-black text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                                  />
+                                </div>
+                              </div>
+                              <div className="text-[10px] font-extrabold text-amber-900 text-center mt-1">
+                                মোট ফেরত: {formatBanglaNumber(retPcs)} পিস
+                              </div>
+                            </td>
+
+                            {/* Net Sold Qty */}
+                            <td className="py-3 px-3 text-center font-black text-emerald-900">
+                              <div>{formatBanglaNumber(netSoldPcs)} পিস</div>
+                              {pcsPerCtn > 1 && (
+                                <div className="text-[10px] text-slate-500 font-semibold">
+                                  ({toBanglaNumerals(netSoldCartons)} কার্টন {netSoldLoose > 0 ? `${toBanglaNumerals(netSoldLoose)} পিস` : ''})
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Net Sold Amount */}
+                            <td className="py-3 px-3 text-right font-black text-slate-900">
+                              {formatBanglaCurrency(netSoldAmount)}
+                            </td>
+
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Dynamic Financial Summary Card */}
+              {(() => {
+                let totalReturnedVal = 0;
+                let newSubTotalVal = 0;
+
+                returnInvoice.items.forEach(item => {
+                  const p = products.find(prod => prod.id === item.productId);
+                  const pcsPerCtn = p?.pcsPerCarton || p?.cartonSize || 1;
+                  const entry = returnQuantities[item.productId] || { cartons: 0, loosePcs: 0 };
+                  const retPcs = Math.min(item.qty, Math.max(0, (entry.cartons || 0) * pcsPerCtn + (entry.loosePcs || 0)));
+                  const netQty = Math.max(0, item.qty - retPcs);
+
+                  totalReturnedVal += retPcs * item.price;
+                  newSubTotalVal += netQty * item.price;
+                });
+
+                const newNetTotalVal = Math.max(0, newSubTotalVal - (returnInvoice.discount || 0));
+                const newDueVal = Math.max(0, newNetTotalVal - (returnInvoice.cashPaid || 0));
+
+                return (
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div className="flex justify-between font-bold text-slate-600">
+                      <span>চালুকৃত মোট বিক্রি (Delivered Gross Sales):</span>
+                      <span>{formatBanglaCurrency(returnInvoice.subTotal || 0)}</span>
+                    </div>
+                    {totalReturnedVal > 0 && (
+                      <div className="flex justify-between font-black text-amber-800 bg-amber-50/80 p-1.5 rounded-lg border border-amber-200">
+                        <span>ফেরতকৃত মালের মোট মূল্য (Total Returned Value):</span>
+                        <span>- {formatBanglaCurrency(totalReturnedVal)}</span>
+                      </div>
+                    )}
+                    {returnInvoice.discount > 0 && (
+                      <div className="flex justify-between font-bold text-rose-600">
+                        <span>চালান ডিসকাউন্ট (Discount):</span>
+                        <span>- {formatBanglaCurrency(returnInvoice.discount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-black text-sm text-emerald-950 border-t border-slate-200 pt-2">
+                      <span>প্রকৃত সংশোধিত নিট বিক্রি (New Net Sales):</span>
+                      <span className="text-emerald-800">{formatBanglaCurrency(newNetTotalVal)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-blue-900 pt-0.5">
+                      <span>আদায়কৃত নগদ ক্যাশ (Cash Paid):</span>
+                      <span>{formatBanglaCurrency(returnInvoice.cashPaid || 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-black text-sm text-amber-900 border-t border-dashed border-slate-200 pt-1.5">
+                      <span>সংশোধিত অবশিষ্ট বাকি (Updated Outstanding Due):</span>
+                      <span className={newDueVal > 0 ? 'text-rose-700 bg-rose-50 px-2 py-0.5 rounded' : 'text-emerald-700'}>
+                        {formatBanglaCurrency(newDueVal)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+              <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>সংরক্ষণ বাটনে ক্লিক করলে গুদামের স্টক স্বয়ংক্রিয়ভাবে আপডেট হবে।</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setReturnInvoice(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  বাতিল করুন
+                </button>
+                <button 
+                  disabled={isSavingReturn}
+                  onClick={handleSaveReturn}
+                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-black rounded-xl flex items-center gap-2 transition cursor-pointer shadow-sm"
+                >
+                  <PackageCheck className="h-4.5 w-4.5" />
+                  {isSavingReturn ? 'সংরক্ষণ ও স্টক সমন্বয় হচ্ছে...' : 'পণ্য ফেরত ও স্টক সমন্বয় সংরক্ষণ করুন'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ====================================================
           INVOICE DETAILS MODAL & PRINTABLE MEMO
@@ -624,20 +1072,30 @@ export default function SalesInvoices() {
                   <thead>
                     <tr className="bg-slate-100 text-[10px] font-bold uppercase text-slate-700 border-b border-slate-200">
                       <th className="py-2 px-3">পণ্য</th>
-                      <th className="py-2 px-3 text-center">পরিমাণ</th>
+                      <th className="py-2 px-3 text-center">চালুকৃত (Delivered)</th>
+                      <th className="py-2 px-3 text-center">ফেরত (Returned)</th>
+                      <th className="py-2 px-3 text-center">প্রকৃত বিক্রি</th>
                       <th className="py-2 px-3 text-right">দর (৳)</th>
                       <th className="py-2 px-3 text-right">মোট টাকা</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedInvoice.items?.map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="py-2 px-3 font-bold text-slate-900">{item.name}</td>
-                        <td className="py-2 px-3 text-center font-bold">{formatBanglaNumber(item.qty)} পিস</td>
-                        <td className="py-2 px-3 text-right">{formatBanglaCurrency(item.price)}</td>
-                        <td className="py-2 px-3 text-right font-black">{formatBanglaCurrency(item.total)}</td>
-                      </tr>
-                    ))}
+                    {selectedInvoice.items?.map((item, idx) => {
+                      const retPcs = item.returnedQty || 0;
+                      const netPcs = item.netQty !== undefined ? item.netQty : item.qty - retPcs;
+                      return (
+                        <tr key={idx}>
+                          <td className="py-2 px-3 font-bold text-slate-900">{item.name}</td>
+                          <td className="py-2 px-3 text-center font-bold">{formatBanglaNumber(item.qty)} পিস</td>
+                          <td className="py-2 px-3 text-center font-bold text-amber-800">
+                            {retPcs > 0 ? `${formatBanglaNumber(retPcs)} পিস` : '-'}
+                          </td>
+                          <td className="py-2 px-3 text-center font-black text-emerald-900">{formatBanglaNumber(netPcs)} পিস</td>
+                          <td className="py-2 px-3 text-right">{formatBanglaCurrency(item.price)}</td>
+                          <td className="py-2 px-3 text-right font-black">{formatBanglaCurrency(item.total)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -670,9 +1128,15 @@ export default function SalesInvoices() {
               {/* Financial Totals */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1.5 text-xs">
                 <div className="flex justify-between font-bold text-slate-600">
-                  <span>Gross Sales:</span>
+                  <span>চালুকৃত মোট বিক্রি:</span>
                   <span>{formatBanglaCurrency(selectedInvoice.subTotal || 0)}</span>
                 </div>
+                {selectedInvoice.totalReturnedAmount && selectedInvoice.totalReturnedAmount > 0 ? (
+                  <div className="flex justify-between font-bold text-amber-800">
+                    <span>ফেরতকৃত মালের মূল্য:</span>
+                    <span>- {formatBanglaCurrency(selectedInvoice.totalReturnedAmount)}</span>
+                  </div>
+                ) : null}
                 {selectedInvoice.discount > 0 && (
                   <div className="flex justify-between font-bold text-rose-600">
                     <span>ইনভয়েস ডিসকাউন্ট:</span>
@@ -696,19 +1160,32 @@ export default function SalesInvoices() {
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
               <button 
-                onClick={() => setSelectedInvoice(null)}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                onClick={() => {
+                  const invToReturn = selectedInvoice;
+                  setSelectedInvoice(null);
+                  handleOpenReturnModal(invToReturn);
+                }}
+                className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
               >
-                বন্ধ করুন
+                <Undo2 className="h-4 w-4" /> পণ্য ফেরত এন্ট্রি (Return Goods)
               </button>
-              <button 
-                onClick={handlePrint}
-                className="px-4 py-2 bg-emerald-800 text-white hover:bg-emerald-900 text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
-              >
-                <Printer className="h-4 w-4" /> প্রিন্ট মেমো
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setSelectedInvoice(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  বন্ধ করুন
+                </button>
+                <button 
+                  onClick={handlePrint}
+                  className="px-4 py-2 bg-emerald-800 text-white hover:bg-emerald-900 text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
+                >
+                  <Printer className="h-4 w-4" /> প্রিন্ট মেমো
+                </button>
+              </div>
             </div>
 
           </div>
@@ -757,21 +1234,29 @@ export default function SalesInvoices() {
                 <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black text-slate-900">
                   <th className="py-1.5">ক্রম</th>
                   <th className="py-1.5">পণ্য ও কোম্পানি</th>
-                  <th className="py-1.5 text-center">পরিমাণ (পিস)</th>
+                  <th className="py-1.5 text-center">চালুকৃত (পিস)</th>
+                  <th className="py-1.5 text-center">ফেরত (পিস)</th>
+                  <th className="py-1.5 text-center">প্রকৃত বিক্রি</th>
                   <th className="py-1.5 text-right">একক মূল্য</th>
                   <th className="py-1.5 text-right">মোট টাকা</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 text-xs">
-                {selectedInvoice.items?.map((item, idx) => (
-                  <tr key={idx} className="py-2">
-                    <td className="py-2 font-bold">{toBanglaNumerals(idx + 1)}</td>
-                    <td className="py-2 font-bold">{item.name}</td>
-                    <td className="py-2 text-center font-bold">{formatBanglaNumber(item.qty)}</td>
-                    <td className="py-2 text-right">{formatBanglaCurrency(item.price)}</td>
-                    <td className="py-2 text-right font-black">{formatBanglaCurrency(item.total)}</td>
-                  </tr>
-                ))}
+                {selectedInvoice.items?.map((item, idx) => {
+                  const retPcs = item.returnedQty || 0;
+                  const netPcs = item.netQty !== undefined ? item.netQty : item.qty - retPcs;
+                  return (
+                    <tr key={idx} className="py-2">
+                      <td className="py-2 font-bold">{toBanglaNumerals(idx + 1)}</td>
+                      <td className="py-2 font-bold">{item.name}</td>
+                      <td className="py-2 text-center font-bold">{formatBanglaNumber(item.qty)}</td>
+                      <td className="py-2 text-center font-bold text-slate-700">{retPcs > 0 ? formatBanglaNumber(retPcs) : '-'}</td>
+                      <td className="py-2 text-center font-black">{formatBanglaNumber(netPcs)}</td>
+                      <td className="py-2 text-right">{formatBanglaCurrency(item.price)}</td>
+                      <td className="py-2 text-right font-black">{formatBanglaCurrency(item.total)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -794,6 +1279,12 @@ export default function SalesInvoices() {
                 <span>Gross Sales:</span>
                 <span>{formatBanglaCurrency(selectedInvoice.subTotal)}</span>
               </div>
+              {selectedInvoice.totalReturnedAmount && selectedInvoice.totalReturnedAmount > 0 ? (
+                <div className="flex justify-between text-amber-800 font-bold">
+                  <span>ফেরতকৃত মালের মূল্য:</span>
+                  <span>- {formatBanglaCurrency(selectedInvoice.totalReturnedAmount)}</span>
+                </div>
+              ) : null}
               {selectedInvoice.discount > 0 && (
                 <div className="flex justify-between text-rose-700">
                   <span>ছাড়:</span>
