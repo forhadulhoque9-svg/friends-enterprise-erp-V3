@@ -217,7 +217,7 @@ export default function App() {
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50/70 text-slate-900" id="friends-erp-root">
       
       {/* 1. LEFT SIDEBAR NAVIGATION */}
-      <aside className="hidden md:flex md:w-64 md:flex-col shrink-0 border-r border-slate-200/80 bg-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col shrink-0 border-r border-slate-200/80 bg-white print:hidden">
         {/* Brand Logo Header */}
         <div className="flex h-16 items-center px-6 border-b border-slate-100">
           <Logo />
@@ -380,7 +380,7 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
         {/* Top Header Bar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-6">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-6 print:hidden">
           <div className="flex items-center gap-4">
             {/* Small screen menu indicators / logo */}
             <div className="md:hidden flex items-center gap-2">

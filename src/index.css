@@ -6,3 +6,16 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Space Grotesk", sans-serif;
 }
+
+@media print {
+  @page { margin: 0.5cm; }
+  body, html, #root, #friends-erp-root {
+    height: auto !important;
+    overflow: visible !important;
+    background-color: white !important;
+  }
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
