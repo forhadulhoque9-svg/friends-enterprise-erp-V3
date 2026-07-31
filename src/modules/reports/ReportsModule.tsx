@@ -31,6 +31,7 @@ export default function ReportsModule() {
   const cashBook = useLiveQuery(() => db.cashBook.toArray()) || [];
   const hawlats = useLiveQuery(() => db.hawlats.toArray()) || [];
   const companyIncentives = useLiveQuery(() => db.companyIncentives?.toArray()) || [];
+  const currentCash = useLiveQuery(() => getCashBalance()) || 0;
   const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
   const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
   const compAddress = profile?.address || 'তেজগাঁও, ঢাকা';
@@ -62,45 +63,45 @@ export default function ReportsModule() {
     });
   };
 
-  const filteredSalesInvoices = filterByDate(salesInvoices);
-  const filteredExpenses = filterByDate(expenses.filter(e => !e.isDeleted));
-  const filteredIncentives = filterByDate(companyIncentives);
+  const filteredSalesInvoices = filterByDate(salesInvoices || []);
+  const filteredExpenses = filterByDate((expenses || []).filter(e => e && !e.isDeleted));
+  const filteredIncentives = filterByDate(companyIncentives || []);
   
-  // 1. Calculate P&L metrics
-  const totalNetSales = filteredSalesInvoices.reduce((sum, inv) => sum + (inv.netTotal || 0), 0);
-  const totalSalesDiscount = filteredSalesInvoices.reduce((sum, inv) => sum + (inv.discount || 0), 0);
-  const totalSalesReturns = filteredSalesInvoices.reduce((sum, inv) => sum + (inv.totalReturnedAmount || 0), 0);
+  // 1. Calculate P&L metrics with extreme safety
+  const totalNetSales = filteredSalesInvoices.reduce((sum, inv) => sum + (inv?.netTotal || 0), 0) || 0;
+  const totalSalesDiscount = filteredSalesInvoices.reduce((sum, inv) => sum + (inv?.discount || 0), 0) || 0;
+  const totalSalesReturns = filteredSalesInvoices.reduce((sum, inv) => sum + (inv?.totalReturnedAmount || 0), 0) || 0;
   
   // Gross Sales (Total Invoice Sales Amount)
   const totalGrossSales = filteredSalesInvoices.reduce((sum, inv) => {
-    const subTotal = inv.subTotal || 0;
-    const returned = inv.totalReturnedAmount || 0;
+    const subTotal = inv?.subTotal || 0;
+    const returned = inv?.totalReturnedAmount || 0;
     return sum + subTotal + returned;
-  }, 0);
+  }, 0) || 0;
 
   // Calculate Cost of Goods Sold (COGS) based on filtered invoices
   const totalCOGS = filteredSalesInvoices.reduce((sum, inv) => {
-    return sum + (inv.items || []).reduce((itemSum, item) => {
-      const qty = item.qty || item.quantity || 0;
-      const edp = item.edp || item.dp || 0;
+    return sum + (inv?.items || []).reduce((itemSum, item) => {
+      const qty = item?.qty || item?.quantity || 0;
+      const edp = item?.edp || item?.dp || 0;
       return itemSum + (qty * edp);
     }, 0);
-  }, 0);
+  }, 0) || 0;
 
-  const grossProfit = totalNetSales - totalCOGS;
+  const grossProfit = (totalNetSales - totalCOGS) || 0;
 
-  const totalIncentiveIncome = filteredIncentives.reduce((sum, inc) => sum + (inc.amount || 0), 0);
+  const totalIncentiveIncome = filteredIncentives.reduce((sum, inc) => sum + (inc?.amount || 0), 0) || 0;
 
   // Operating Expenses Breakdown
-  const dsrExpenses = filteredExpenses.filter(e => e.category.includes('ডিএসআর') || e.category.includes('টিএ/ডিএ')).reduce((sum, e) => sum + e.amount, 0);
-  const transportExpenses = filteredExpenses.filter(e => e.category.includes('গাড়ি') || e.category.includes('পরিবহন')).reduce((sum, e) => sum + e.amount, 0);
-  const rentExpenses = filteredExpenses.filter(e => e.category.includes('গ্যারেজ') || e.category.includes('গোডাউন')).reduce((sum, e) => sum + e.amount, 0);
-  const staffExpenses = filteredExpenses.filter(e => e.category.includes('স্টাফ') || e.category.includes('অফিস')).reduce((sum, e) => sum + e.amount, 0);
+  const dsrExpenses = filteredExpenses.filter(e => e && (e.category || '').includes('ডিএসআর') || (e.category || '').includes('টিএ/ডিএ')).reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+  const transportExpenses = filteredExpenses.filter(e => e && (e.category || '').includes('গাড়ি') || (e.category || '').includes('পরিবহন')).reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+  const rentExpenses = filteredExpenses.filter(e => e && (e.category || '').includes('গ্যারেজ') || (e.category || '').includes('গোডাউন')).reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+  const staffExpenses = filteredExpenses.filter(e => e && (e.category || '').includes('স্টাফ') || (e.category || '').includes('অফিস')).reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
   
   // Anything else goes to utility/other
   const categorizedExpenseTotal = dsrExpenses + transportExpenses + rentExpenses + staffExpenses;
-  const totalOperatingExpenses = filteredExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-  const utilityExpenses = totalOperatingExpenses - categorizedExpenseTotal;
+  const totalOperatingExpenses = filteredExpenses.reduce((sum, exp) => sum + (exp?.amount || 0), 0) || 0;
+  const utilityExpenses = Math.max(0, totalOperatingExpenses - categorizedExpenseTotal);
 
   const netOperatingProfit = (grossProfit + totalIncentiveIncome) - totalOperatingExpenses;
 
@@ -109,13 +110,13 @@ export default function ReportsModule() {
   const totalAccountsPayable = companies.reduce((sum, c) => sum + (c.outstandingBalance || 0), 0);
   
   const totalInventoryValue = productBatches.reduce((sum, b) => {
-    const available = b.availableStock ?? b.currentStock ?? 0;
-    const cost = b.edp || b.dp || 0;
+    const available = b?.availableStock ?? b?.currentStock ?? 0;
+    const cost = b?.edp || b?.dp || 0;
     return sum + (available * cost);
-  }, 0) || products.reduce((sum, p) => sum + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
+  }, 0) || products.reduce((sum, p) => sum + ((p?.stock || 0) * (p?.purchasePrice || 0)), 0);
 
-  const totalHawlatReceivable = hawlats.filter(h => h.cashBalance < 0).reduce((sum, h) => sum + Math.abs(h.cashBalance), 0);
-  const totalHawlatPayable = hawlats.filter(h => h.cashBalance > 0).reduce((sum, h) => sum + h.cashBalance, 0);
+  const totalHawlatReceivable = hawlats.filter(h => (h.cashBalance || 0) < 0).reduce((sum, h) => sum + Math.abs(h.cashBalance || 0), 0);
+  const totalHawlatPayable = hawlats.filter(h => (h.cashBalance || 0) > 0).reduce((sum, h) => sum + (h.cashBalance || 0), 0);
 
   const totalDebit = currentCash + totalAccountsReceivable + totalInventoryValue + totalHawlatReceivable;
   const totalCredit = totalAccountsPayable + totalHawlatPayable + (netOperatingProfit > 0 ? netOperatingProfit : 0);
@@ -235,7 +236,7 @@ export default function ReportsModule() {
               </tr>
               <tr className="bg-rose-50">
                 <td className="py-2 px-2 font-black text-rose-900">= মোট পরিচালন খরচ (Total Operating Expenses)</td>
-                <td className="py-2 px-2 text-right font-mono font-black text-rose-900">- {formatBanglaCurrency(totalOperatingExpenses)}</td>
+                <td className="py-2 px-2 text-right font-mono font-black text-rose-900">{totalOperatingExpenses > 0 ? '-' : ''} {formatBanglaCurrency(totalOperatingExpenses)}</td>
               </tr>
               <tr className="border-t-2 border-slate-900 border-b-4">
                 <td className="py-4 px-2 text-lg font-black uppercase">চূড়ান্ত নিট লাভ / ক্ষতি (NET OPERATING PROFIT / LOSS)</td>
@@ -490,7 +491,7 @@ export default function ReportsModule() {
                 </div>
                 <div className="flex justify-between pl-4 font-extrabold text-rose-800 pt-1 border-t border-dashed border-slate-200 mt-2">
                   <span>= মোট পরিচালন খরচ (Total Expenses)</span>
-                  <span className="font-mono">- {formatBanglaCurrency(totalOperatingExpenses)}</span>
+                  <span className="font-mono">{totalOperatingExpenses > 0 ? '-' : ''} {formatBanglaCurrency(totalOperatingExpenses)}</span>
                 </div>
               </div>
 
