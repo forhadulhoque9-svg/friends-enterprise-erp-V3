@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, recordStockLedger, recordCashTransaction, postSalesInvoice } from '../db/db';
 import { Product, Customer, SalesInvoice, Route, DSRShortLedgerEntry } from '../types';
+import SalesInvoices from './SalesInvoices';
 import { 
   Plus, 
   Trash2, 
@@ -27,7 +28,8 @@ import {
   FileText,
   Phone,
   RefreshCw,
-  UserCheck
+  UserCheck,
+  History
 } from 'lucide-react';
 
 // Bangla Numerals Converter
@@ -115,6 +117,9 @@ export interface DueCustomerEntry {
 }
 
 export default function Sales() {
+  // Sub-Tab Navigation State
+  const [activeSubTab, setActiveSubTab] = useState<'create' | 'history'>('create');
+
   // Live Database Queries
   const routes = useLiveQuery(() => db.routes.toArray());
   const products = useLiveQuery(() => db.products.toArray());
@@ -570,7 +575,39 @@ export default function Sales() {
         </div>
       </div>
 
-      {/* Main Form Layout Grid */}
+      {/* Sub-Tab Switcher Navigation */}
+      <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200/80 shadow-xs print:hidden">
+        <button 
+          onClick={() => setActiveSubTab('create')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeSubTab === 'create' 
+              ? 'bg-emerald-800 text-white shadow-sm font-black' 
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <Plus className="h-4 w-4" />
+          নতুন ইনভয়েস তৈরি (New Invoice)
+        </button>
+
+        <button 
+          onClick={() => setActiveSubTab('history')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeSubTab === 'history' 
+              ? 'bg-emerald-800 text-white shadow-sm font-black' 
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <History className="h-4 w-4" />
+          বিক্রয় ইনভয়েস ফিল্টার ও ইতিহাস (Sales Invoices & Filters)
+        </button>
+      </div>
+
+      {/* RENDER INVOICE HISTORY TAB */}
+      {activeSubTab === 'history' ? (
+        <SalesInvoices />
+      ) : (
+
+      /* Main Form Layout Grid */
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:hidden">
         
         {/* LEFT 2 COLS: Invoice Info, Product Entry, Damage Return, Multiple Dues */}
@@ -1426,6 +1463,7 @@ export default function Sales() {
         </div>
 
       </div>
+      )}
 
       {/* =========================================
           FULL PRINTABLE MEMO & PDF VIEW
