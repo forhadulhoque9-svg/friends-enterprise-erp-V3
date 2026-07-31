@@ -9,13 +9,11 @@ import Customers from './modules/Customers';
 import Sales from './modules/Sales';
 import Purchases from './modules/Purchases';
 import Inventory from './modules/Inventory';
-import CompanyFinancials from './modules/CompanyFinancials';
 import HawlatModule from './modules/Hawlat';
 import BusinessProfileModule from './modules/business-profile/BusinessProfileModule';
 import ReportsModule from './modules/reports/ReportsModule';
 import DsrModule from './modules/dsr/DsrModule';
 import DemandSheetModule from './modules/demand-sheet/DemandSheetModule';
-import RouteSalesModule from './modules/route-sales/RouteSalesModule';
 import BackupRestore from './modules/BackupRestore';
 import DamageManagement from './modules/DamageManagement';
 import DailyExpenses from './modules/expenses/DailyExpenses';
@@ -50,7 +48,7 @@ import {
   PieChart
 } from 'lucide-react';
 
-type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'financials' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'route-sales' | 'business-profile' | 'settings' | 'expenses';
+type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'business-profile' | 'settings' | 'expenses';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ModuleTab>('dashboard');
@@ -232,7 +230,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'dashboard' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-dashboard"
           >
-            <LayoutDashboard className="h-4 w-4" /> Executive Dashboard
+            <LayoutDashboard className="h-4 w-4" /> ড্যাশবোর্ড
           </button>
 
           <button 
@@ -240,7 +238,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'inventory' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-inventory"
           >
-            <Package className="h-4 w-4" /> Stock Controller
+            <Package className="h-4 w-4" /> ইনভেন্টরি ও স্টক
           </button>
 
           <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Trading Sales</span>
@@ -250,7 +248,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'sales' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-sales"
           >
-            <TrendingUp className="h-4 w-4" /> Sales Invoicing
+            <TrendingUp className="h-4 w-4" /> সেলস ইনভয়েস ও মেমো
           </button>
 
           <button 
@@ -258,7 +256,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'customers' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-customers"
           >
-            <Users className="h-4 w-4" /> Retail Customers
+            <Users className="h-4 w-4" /> কাস্টমার তালিকা
           </button>
 
           <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Field Sales & Logistics</span>
@@ -268,7 +266,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'dsr' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-dsr"
           >
-            <UserCheck className="h-4 w-4" /> ডিএসআর ও পে-রোল (DSR & Payroll)
+            <UserCheck className="h-4 w-4" /> ডিএসআর ফিল্ড ভিজিট
           </button>
 
           <button 
@@ -276,15 +274,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'demand-sheet' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-demand-sheet"
           >
-            <FileCheck className="h-4 w-4" /> Demand & Picking Slips
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('route-sales')}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'route-sales' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-            id="nav-route-sales"
-          >
-            <Truck className="h-4 w-4" /> Route Sales & Delivery
+            <FileCheck className="h-4 w-4" /> ডিমান্ড স্লিপ ও চালান
           </button>
 
           <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Procurement & Claims</span>
@@ -294,15 +284,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'purchases' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-purchases"
           >
-            <ShoppingBag className="h-4 w-4" /> Supplier Purchases
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('financials')}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'financials' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-            id="nav-financials"
-          >
-            <ShieldAlert className="h-4 w-4 text-emerald-600" /> Trade Financials
+            <ShoppingBag className="h-4 w-4" /> ক্রয় ও সাপ্লায়ার লেজার
           </button>
 
           <button 
@@ -310,7 +292,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'expenses' ? 'bg-rose-50 text-rose-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-expenses"
           >
-            <Wallet className="h-4 w-4 text-rose-600" /> খরচের খাতা (Daily Expenses)
+            <Wallet className="h-4 w-4 text-rose-600" /> দৈনন্দিন খরচের খাত
           </button>
 
           <button 
@@ -318,7 +300,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'damage' ? 'bg-purple-50 text-purple-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-damage"
           >
-            <ShieldAlert className="h-4 w-4 text-purple-600" /> ড্যামেজ ও ক্লেম (Damage & Claims)
+            <ShieldAlert className="h-4 w-4 text-purple-600" /> ড্যামেজ ও ক্লেইম রেজিস্টার
           </button>
 
           <button 
@@ -326,7 +308,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'reports' ? 'bg-indigo-50 text-indigo-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-reports"
           >
-            <PieChart className="h-4 w-4" /> লাভ-ক্ষতির হিসাব (Profit & Loss)
+            <PieChart className="h-4 w-4" /> লাভ-ক্ষতির রিপোর্ট
           </button>
 
           <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Bespoke Ledgers</span>
@@ -336,7 +318,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'hawlat' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-hawlat"
           >
-            <Coins className="h-4 w-4" /> Hawlat Ledger
+            <Coins className="h-4 w-4" /> হাওলাত লেজার
           </button>
 
           <button 
@@ -344,7 +326,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'products' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-products"
           >
-            <Layers className="h-4 w-4" /> SKU Catalog
+            <Layers className="h-4 w-4" /> পণ্যের তালিকা (SKU)
           </button>
 
           <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">System Admin</span>
@@ -354,7 +336,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'business-profile' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-business-profile"
           >
-            <Building2 className="h-4 w-4" /> Business Profile
+            <Building2 className="h-4 w-4" /> ব্যবসায়িক প্রোফাইল
           </button>
 
           <button 
@@ -390,22 +372,20 @@ export default function App() {
                 onChange={(e) => setActiveTab(e.target.value as ModuleTab)}
                 className="rounded border border-slate-200 bg-white p-1 text-xs font-bold text-slate-900 focus:outline-none"
               >
-                <option value="dashboard">Dashboard</option>
-                <option value="inventory">Inventory</option>
-                <option value="sales">Sales Invoice</option>
-                <option value="customers">Customers</option>
-                <option value="dsr">DSR Field Visits</option>
-                <option value="demand-sheet">Demand Slips</option>
-                <option value="route-sales">Route Sales</option>
-                <option value="purchases">Purchases</option>
-                <option value="financials">Financials</option>
-                <option value="expenses">খরচের খাতা (Daily Expenses)</option>
-                <option value="damage">ড্যামেজ ও ক্লেম (Damage & Claims)</option>
-                <option value="reports">Financial Reports</option>
-                <option value="hawlat">Hawlat</option>
-                <option value="products">Products</option>
-                <option value="business-profile">Business Profile</option>
-                <option value="settings">ব্যাকআপ ও রিস্টোর (Backup & Restore)</option>
+                <option value="dashboard">ড্যাশবোর্ড</option>
+                <option value="inventory">ইনভেন্টরি ও স্টক</option>
+                <option value="sales">সেলস ইনভয়েস ও মেমো</option>
+                <option value="customers">কাস্টমার তালিকা</option>
+                <option value="dsr">ডিএসআর ফিল্ড ভিজিট</option>
+                <option value="demand-sheet">ডিমান্ড স্লিপ ও চালান</option>
+                <option value="purchases">ক্রয় ও সাপ্লায়ার লেজার</option>
+                <option value="expenses">দৈনন্দিন খরচের খাত</option>
+                <option value="damage">ড্যামেজ ও ক্লেইম রেজিস্টার</option>
+                <option value="reports">লাভ-ক্ষতির রিপোর্ট</option>
+                <option value="hawlat">হাওলাত লেজার</option>
+                <option value="products">পণ্যের তালিকা (SKU)</option>
+                <option value="business-profile">ব্যবসায়িক প্রোফাইল</option>
+                <option value="settings">ব্যাকআপ ও রিস্টোর</option>
               </select>
             </div>
 
@@ -458,14 +438,12 @@ export default function App() {
           {activeTab === 'sales' && <Sales />}
           {activeTab === 'purchases' && <Purchases />}
           {activeTab === 'inventory' && <Inventory />}
-          {activeTab === 'financials' && <CompanyFinancials />}
           {activeTab === 'expenses' && <DailyExpenses />}
           {activeTab === 'damage' && <DamageManagement />}
           {activeTab === 'hawlat' && <HawlatModule />}
           {activeTab === 'reports' && <ReportsModule />}
           {activeTab === 'dsr' && <DsrModule />}
           {activeTab === 'demand-sheet' && <DemandSheetModule />}
-          {activeTab === 'route-sales' && <RouteSalesModule />}
           {activeTab === 'business-profile' && <BusinessProfileModule />}
           
           {/* TAB: BACKUP & RESTORE MODULE */}
