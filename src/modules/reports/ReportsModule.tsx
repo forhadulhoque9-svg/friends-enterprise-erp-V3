@@ -273,9 +273,14 @@ export default function ReportsModule() {
             <Download className="h-3.5 w-3.5 text-slate-600" /> ডাউনলোড CSV (Export CSV)
           </button>
           <button
+            type="button"
             onClick={() => {
-              if (activeTab !== 'pnl') setActiveTab('pnl');
-              setTimeout(() => window.print(), 100);
+              if (activeTab === 'pnl') {
+                window.print();
+              } else {
+                setActiveTab('pnl');
+                setTimeout(() => window.print(), 300);
+              }
             }}
             className="flex items-center gap-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 py-1.5 px-3 text-xs font-bold shadow-sm transition print:hidden"
           >

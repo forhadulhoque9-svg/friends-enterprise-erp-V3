@@ -214,7 +214,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50/70 text-slate-900" id="friends-erp-root">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50/70 text-slate-900 print:overflow-visible print:h-auto print:bg-white" id="friends-erp-root">
       
       {/* 1. LEFT SIDEBAR NAVIGATION */}
       <aside className="hidden md:flex md:w-64 md:flex-col shrink-0 border-r border-slate-200/80 bg-white print:hidden">
@@ -377,7 +377,7 @@ export default function App() {
       </aside>
 
       {/* 2. MAIN CORE STAGE */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:h-auto">
         
         {/* Top Header Bar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-6 print:hidden">
@@ -450,7 +450,7 @@ export default function App() {
         </header>
 
         {/* Active Stage Renderer */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 print:overflow-visible print:h-auto print:p-0 print:block">
           <DebugScreen />
           {activeTab === 'dashboard' && <Dashboard onNavigate={(mod) => setActiveTab(mod as any)} />}
           {activeTab === 'products' && <Products />}
