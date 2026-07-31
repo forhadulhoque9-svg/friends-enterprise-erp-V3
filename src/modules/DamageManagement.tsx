@@ -649,9 +649,13 @@ export default function DamageManagement() {
                               <span className="inline-block mt-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200">
                                 প্রারম্ভিক স্টক (Opening)
                               </span>
+                            ) : d.id.startsWith('dmg_ret_') || d.remarks?.includes('বিক্রয় চালান') ? (
+                              <span className="inline-block mt-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200">
+                                বিক্রয় ইনভয়েস ফেরত (Sales Return)
+                              </span>
                             ) : (
-                              <span className="inline-block mt-0.5 text-[10px] font-semibold text-slate-500">
-                                নিয়মিত ড্যামেজ
+                              <span className="inline-block mt-0.5 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                গোডাউন সরাসরি (Direct Warehouse)
                               </span>
                             )}
                           </td>

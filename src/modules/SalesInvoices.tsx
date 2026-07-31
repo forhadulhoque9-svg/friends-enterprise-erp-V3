@@ -80,6 +80,7 @@ export default function SalesInvoices() {
   const customers = useLiveQuery(() => db.customers.toArray()) || [];
   const dsrList = useLiveQuery(() => db.salesmen.toArray()) || [];
   const products = useLiveQuery(() => db.products.toArray()) || [];
+  const companies = useLiveQuery(() => db.companies.toArray()) || [];
   const businessProfiles = useLiveQuery(() => db.businessProfiles.toArray()) || [];
 
   // Business details for print memo
@@ -270,6 +271,32 @@ export default function SalesInvoices() {
               qtyOut: 0,
               balance: updatedStk,
               remarks: `চালান #${returnInvoice.invoiceNo} পণ্য ফেরত সমন্বয় (গুদামে যুক্ত ${toBanglaNumerals(deltaRetPcs)} পিস)`
+            });
+
+            // Automated Sync to Damage Management Warehouse Stock
+            const compObj = companies.find(c => c.id === p.companyId);
+            const compId = p.companyId || compObj?.id || 'general_company';
+            const compName = p.company || compObj?.name || 'সাধারণ কোম্পানি';
+            const unitPrice = item.price || p.dp || p.purchasePricePcs || p.purchasePrice || 1;
+            const damageVal = deltaRetPcs * unitPrice;
+            const ctn = entry.cartons || Math.floor(deltaRetPcs / pcsPerCtn);
+            const loose = entry.loosePcs || (deltaRetPcs % pcsPerCtn);
+
+            await db.companyDamages.add({
+              id: `dmg_ret_${Date.now()}_${p.id}`,
+              companyId: compId,
+              companyName: compName,
+              productId: p.id,
+              productName: p.name || item.name,
+              qty: deltaRetPcs,
+              cartons: ctn,
+              loosePcs: loose,
+              unitPrice: unitPrice,
+              damageValue: damageVal,
+              status: 'Pending',
+              date: todayStr,
+              remarks: `বিক্রয় চালান #${returnInvoice.invoiceNo} হতে স্বয়ংক্রিয় ড্যামেজ যুক্ত`,
+              isOpeningStock: false
             });
           }
         }
