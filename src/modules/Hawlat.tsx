@@ -201,10 +201,35 @@ export default function HawlatModule() {
     setTxProductId(productId);
     const prod = products?.find(p => p.id === productId);
     if (prod) {
-      const pcsPerCtn = prod.pcsPerCarton || 1;
+      const pcsPerCtn = prod.pcsPerCarton || prod.cartonSize || 1;
       setTxPcsPerCarton(pcsPerCtn);
-      setTxRatePerCarton(prod.dp ? prod.dp * pcsPerCtn : 0);
-      setTxRatePerPcs(prod.dp || prod.sellingPrice || 0);
+
+      // Determine piece rate from any available rate property
+      let pcsRate = prod.purchasePricePcs 
+        || prod.purchasePrice 
+        || prod.dp 
+        || prod.salesPricePcs 
+        || prod.retailPrice 
+        || prod.sellingPrice 
+        || 0;
+      
+      // Determine carton rate from carton price or calculated piece rate
+      let cartonRate = prod.purchasePriceCarton 
+        || prod.salesPriceCarton 
+        || (pcsRate * pcsPerCtn);
+
+      if (pcsRate === 0 && cartonRate > 0) {
+        pcsRate = Math.round((cartonRate / pcsPerCtn) * 100) / 100;
+      } else if (cartonRate === 0 && pcsRate > 0) {
+        cartonRate = Math.round((pcsRate * pcsPerCtn) * 100) / 100;
+      }
+
+      setTxRatePerCarton(cartonRate);
+      setTxRatePerPcs(pcsRate);
+    } else {
+      setTxPcsPerCarton(1);
+      setTxRatePerCarton(0);
+      setTxRatePerPcs(0);
     }
   };
 
@@ -331,8 +356,11 @@ export default function HawlatModule() {
       setTxSuccess('হাওলাত লেনদেন সফলভাবে সংরক্ষিত ও লেজারে আপডেট হয়েছে!');
       // Reset input fields
       setTxCashAmount(0);
+      setTxProductId('');
       setTxCartons(0);
       setTxLoosePcs(0);
+      setTxRatePerCarton(0);
+      setTxRatePerPcs(0);
       setTxRemarks('');
       setTxBankSlipNo('');
     } catch (err: any) {
@@ -1042,7 +1070,13 @@ export default function HawlatModule() {
                       min="0"
                       step="any"
                       value={txRatePerCarton || ''}
-                      onChange={(e) => setTxRatePerCarton(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setTxRatePerCarton(val);
+                        if (txPcsPerCarton > 0) {
+                          setTxRatePerPcs(Math.round((val / txPcsPerCarton) * 100) / 100);
+                        }
+                      }}
                       placeholder="০.০০"
                       className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     />
@@ -1057,7 +1091,13 @@ export default function HawlatModule() {
                       min="0"
                       step="any"
                       value={txRatePerPcs || ''}
-                      onChange={(e) => setTxRatePerPcs(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setTxRatePerPcs(val);
+                        if (txPcsPerCarton > 0) {
+                          setTxRatePerCarton(Math.round((val * txPcsPerCarton) * 100) / 100);
+                        }
+                      }}
                       placeholder="০.০০"
                       className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     />
