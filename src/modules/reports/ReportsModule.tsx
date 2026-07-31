@@ -48,7 +48,7 @@ export default function ReportsModule() {
     return sum + (qty * edp);
   }, 0);
 
-  const totalOperatingExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+  const totalOperatingExpenses = expenses.filter(e => !e.isDeleted).reduce((sum, exp) => sum + (exp.amount || 0), 0);
   const totalSalesReturns = returns.filter(r => r.returnType === 'Sales_Return').reduce((sum, r) => sum + (r.totalRefundAmount || 0), 0);
   
   const grossProfit = totalGrossSales - totalCOGS;

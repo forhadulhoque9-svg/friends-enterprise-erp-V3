@@ -960,18 +960,20 @@ export const TransactionEngine = {
     date: string,
     category: string,
     amount: number,
-    remarks: string
+    remarks: string,
+    paidBy?: string
   ): Promise<void> {
-    const payload = { date, category, amount, remarks };
+    const payload = { date, category, amount, remarks, paidBy };
     try {
       await db.transaction('rw', [db.expenses, db.cashBook, db.auditLogs, db.dailyKPIs], async () => {
-        const expenseId = `exp_${Date.now()}`;
+        const expenseId = crypto.randomUUID();
         await db.expenses.add({
           id: expenseId,
           date,
           category,
           amount,
-          remarks
+          remarks,
+          paidBy
         });
 
         await recordCashTransaction(

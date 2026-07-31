@@ -360,9 +360,10 @@ export async function postExpense(
   date: string,
   category: string,
   amount: number,
-  remarks: string
+  remarks: string,
+  paidBy?: string
 ): Promise<void> {
-  return TransactionEngine.postExpense(date, category, amount, remarks);
+  return TransactionEngine.postExpense(date, category, amount, remarks, paidBy);
 }
 
 export async function postShopCollection(

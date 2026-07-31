@@ -559,6 +559,7 @@ export interface Expense extends BaseEntity {
   category: string;                // Category tag (e.g. 'Fuel', 'Utilities')
   routeId?: string;                // Optional route linked mapping
   amount: number;
+  paidBy?: string;                 // Person who paid or staff name
   remarks: string;
 }
 
