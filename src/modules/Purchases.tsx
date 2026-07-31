@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, postPurchaseInvoice, postCompanyPayment, postCompanyIncentive } from '../db/db';
 import { Company, PurchaseItem, PurchaseInvoice, DemandSheet, Product, CompanyIncentive, IncentiveType } from '../types';
+import UniversalPrintModal from '../components/UniversalPrintModal';
+import { formatBanglaCurrency, toBanglaNumerals, formatBanglaDate } from '../lib/utils';
 import { 
   Plus, 
   Search, 
@@ -26,23 +28,13 @@ import {
   DollarSign,
   Check,
   Building2,
-  FileText
+  FileText,
+  History,
+  ArrowRight,
+  AlertCircle,
+  Package,
+  Share2
 } from 'lucide-react';
-
-// Bangla numerals & currency helpers
-const toBanglaNumerals = (num: number | string | null | undefined): string => {
-  if (num === null || num === undefined || num === '') return '০';
-  const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-  return String(num).replace(/[0-9]/g, (digit) => banglaDigits[parseInt(digit, 10)]);
-};
-
-const formatBanglaCurrency = (amount: number): string => {
-  const formatted = new Intl.NumberFormat('en-IN', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0
-  }).format(amount || 0);
-  return '৳ ' + toBanglaNumerals(formatted);
-};
 
 const formatBanglaNumber = (num: number): string => {
   const formatted = new Intl.NumberFormat('en-IN').format(num || 0);
@@ -63,6 +55,11 @@ interface PurchaseLineItem {
 
 export default function Purchases() {
   const [searchCompany, setSearchCompany] = useState('');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printType, setPrintType] = useState<'ledger' | 'purchase' | 'demand'>('purchase');
+  const [printData, setPrintData] = useState<any>(null);
+  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
+  const [compAddress] = useState('তেজগাঁও, ঢাকা');
   
   // Main Module Tabs: 'new-purchase' | 'ledger' | 'history'
   const [activeTab, setActiveTab] = useState<'new-purchase' | 'ledger' | 'history'>('new-purchase');
@@ -679,12 +676,34 @@ export default function Purchases() {
                   {selectedDemandSlipId && (
                     <div className="flex items-center justify-between bg-emerald-100/60 rounded-lg p-2 text-xs text-emerald-900 font-medium">
                       <span>লিঙ্কড ডিমান্ড স্লিপ: <strong className="font-mono">{selectedDemandSlipId}</strong></span>
-                      <button 
-                        onClick={() => handleSelectDemandSlip('')}
-                        className="text-emerald-700 hover:text-emerald-900 text-[11px] underline font-bold"
-                      >
-                        রিসেট করুন
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            const ds = demandSheets.find(d => d.id === selectedDemandSlipId);
+                            if (ds) {
+                              setPrintType('demand');
+                              setPrintData({
+                                demandNo: ds.demandNo,
+                                date: ds.date,
+                                companyName: ds.companyName,
+                                items: ds.items || [],
+                                currentOrderAmount: ds.currentOrderAmount || ds.orderTotal || 0,
+                                remarks: ds.remarks
+                              });
+                              setShowPrintModal(true);
+                            }
+                          }}
+                          className="flex items-center gap-1 bg-white/80 px-2 py-1 rounded border border-emerald-200 text-emerald-700 hover:bg-white transition"
+                        >
+                          <Printer className="h-3 w-3" /> প্রিন্ট করুন
+                        </button>
+                        <button 
+                          onClick={() => handleSelectDemandSlip('')}
+                          className="text-emerald-700 hover:text-emerald-900 text-[11px] underline font-bold"
+                        >
+                          রিসেট করুন
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1087,6 +1106,22 @@ export default function Purchases() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {/* Print Ledger Button */}
+                    <button 
+                      onClick={() => {
+                        setPrintType('ledger');
+                        setPrintData({
+                          companyName: selectedCompany.name,
+                          companyId: selectedCompany.id,
+                          balance: selectedCompany.outstandingBalance,
+                          entries: selectedCompanyLedger
+                        });
+                        setShowPrintModal(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition shadow-sm cursor-pointer"
+                    >
+                      <Printer className="h-4 w-4" /> স্টেটমেন্ট প্রিন্ট
+                    </button>
                     {/* Incentive/Adjustment Button */}
                     <button 
                       onClick={handleOpenAdjustmentModal}
@@ -1230,6 +1265,30 @@ export default function Purchases() {
                       <td className="py-3 px-3 text-center font-mono font-bold">{toBanglaNumerals(inv.items?.length || 0)}</td>
                       <td className="py-3 px-3 text-right font-mono font-black text-slate-900">{formatBanglaCurrency(inv.totalAmount)}</td>
                       <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700">{formatBanglaCurrency(inv.cashPaid)}</td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => {
+                              setPrintType('purchase');
+                              setPrintData({
+                                purchaseNo: inv.purchaseNo,
+                                date: inv.date,
+                                companyName: inv.companyName,
+                                supplierInvoiceNo: inv.supplierInvoiceNo,
+                                items: inv.items || [],
+                                totalAmount: inv.totalAmount,
+                                cashPaid: inv.cashPaid,
+                                remarks: inv.remarks
+                              });
+                              setShowPrintModal(true);
+                            }}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                            title="প্রিন্ট চালান"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
                       <td className="py-3 px-3 text-slate-500 text-[11px] truncate max-w-[200px]">{inv.remarks}</td>
                     </tr>
                   ))
@@ -1671,6 +1730,18 @@ export default function Purchases() {
           </div>
         </div>
       )}
+
+      {/* Universal Print Modal */}
+      <UniversalPrintModal 
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title={printType === 'demand' ? 'ডিমান্ড স্লিপ ও ডেলিভারি চালান' : printType === 'ledger' ? 'কোম্পানি স্টেটমেন্ট ও সাপ্লায়ার লেজার' : 'পারচেজ/ক্রয় স্লিপ'}
+        type={printType as any}
+        compName={compName}
+        compAddress={compAddress}
+        data={printData}
+      />
+
 
     </div>
   );

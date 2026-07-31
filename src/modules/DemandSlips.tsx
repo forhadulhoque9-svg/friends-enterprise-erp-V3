@@ -19,8 +19,12 @@ import {
   RefreshCw,
   Eye,
   Calendar,
-  DollarSign
+  DollarSign,
+  MessageCircle,
+  Image as ImageIcon,
+  FileDown
 } from 'lucide-react';
+import UniversalPrintModal from '../components/UniversalPrintModal';
 
 // Helper functions for Bangla numeral conversion and currency formatting
 const toBanglaNumerals = (num: number | string | null | undefined): string => {
@@ -71,6 +75,10 @@ export default function DemandSlips() {
   const [viewingDemandSheet, setViewingDemandSheet] = useState<DemandSheet | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printData, setPrintData] = useState<any>(null);
+  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
+  const [compAddress] = useState('তেজগাঁও, ঢাকা');
 
   // Sync default enterprise name from DB config if available
   React.useEffect(() => {
@@ -777,11 +785,26 @@ export default function DemandSlips() {
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            onClick={() => {
+                              setPrintData({
+                                demandNo: ds.demandNo,
+                                date: toBanglaNumerals(ds.date),
+                                companyName: ds.companyName,
+                                items: ds.items || []
+                              });
+                              setShowPrintModal(true);
+                            }}
+                            className="flex items-center gap-1 text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded border border-indigo-200 transition"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                            <span>প্রিন্ট / শেয়ার</span>
+                          </button>
+                          <button
                             onClick={() => setViewingDemandSheet(ds)}
                             className="flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 transition"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            <span>দেখুন / প্রিন্ট</span>
+                            <span>বিস্তারিত</span>
                           </button>
                         </div>
                       </td>
@@ -950,6 +973,17 @@ export default function DemandSlips() {
           </div>
         </div>
       )}
+      {/* Universal Print Modal */}
+      <UniversalPrintModal 
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title="ডিমান্ড স্লিপ ভাউচার"
+        type="demand"
+        compName={compName}
+        compAddress={compAddress}
+        data={printData}
+      />
+
     </div>
   );
 }

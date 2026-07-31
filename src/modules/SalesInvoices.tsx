@@ -3,6 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { SalesInvoice } from '../types';
 import ErrorBoundary from '../components/ErrorBoundary';
+import UniversalPrintModal from '../components/UniversalPrintModal';
+import { formatBanglaCurrency, toBanglaNumerals, formatBanglaDate } from '../lib/utils';
 import { 
   Search, 
   Calendar, 
@@ -23,53 +25,11 @@ import {
   PackageCheck
 } from 'lucide-react';
 
-// Helper: Convert numbers to Bangla digits
-export function toBanglaNumerals(num: number | string | undefined | null): string {
-  if (num === undefined || num === null || num === '') return '০';
-  const str = String(num);
-  const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-  return str.replace(/[0-9]/g, (digit) => banglaDigits[parseInt(digit, 10)]);
-}
-
-// Helper: Format BDT Currency with Bangla Numerals
-export function formatBanglaCurrency(amount: number | string | undefined | null): string {
-  const numericAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
-  if (isNaN(numericAmount)) return '৳ ০';
-  const isNegative = numericAmount < 0;
-  const formatted = Math.abs(numericAmount).toLocaleString('en-US', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  });
-  return `${isNegative ? '-' : ''}৳ ${toBanglaNumerals(formatted)}`;
-}
-
 // Helper: Format Number with Bangla Numerals
 export function formatBanglaNumber(num: number | string | undefined | null): string {
   const numericVal = typeof num === 'number' ? num : parseFloat(String(num || 0));
   if (isNaN(numericVal)) return '০';
   return toBanglaNumerals(Math.round(numericVal).toLocaleString('en-US'));
-}
-
-// Helper: Format Date to Bangla String
-export function formatBanglaDate(dateString: string | Date | undefined | null): string {
-  if (!dateString) return 'N/A';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return toBanglaNumerals(String(dateString));
-
-    const monthNamesBangla = [
-      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
-      'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
-    ];
-    
-    const day = date.getDate();
-    const month = monthNamesBangla[date.getMonth()];
-    const year = date.getFullYear();
-
-    return `${toBanglaNumerals(day)} ${month}, ${toBanglaNumerals(year)}`;
-  } catch (e) {
-    return String(dateString);
-  }
 }
 
 function SalesInvoicesContent() {
@@ -95,6 +55,10 @@ function SalesInvoicesContent() {
   const configuredPhone = businessProfiles?.[0]?.phone || '০১৮৩৫৯১২৫৯৭';
   const configuredOwner = businessProfiles?.[0]?.owner || 'ফরহাদুল হক';
   const configuredBusinessName = businessProfiles?.[0]?.businessName || 'ফ্রেন্ডস এন্টারপ্রাইজ';
+
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
+  const [compAddress] = useState('তেজগাঁও, ঢাকা');
 
   // Filter States
   const todayStr = new Date().toISOString().split('T')[0];
@@ -415,7 +379,7 @@ function SalesInvoicesContent() {
 
   // Handle Memo Print
   const handlePrint = () => {
-    window.print();
+    setShowPrintModal(true);
   };
 
   return (
@@ -761,10 +725,10 @@ function SalesInvoicesContent() {
                           <button 
                             onClick={() => {
                               setSelectedInvoice(inv);
-                              setTimeout(() => window.print(), 200);
+                              setShowPrintModal(true);
                             }}
-                            className="p-1.5 text-slate-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition cursor-pointer"
-                            title="মেমো প্রিন্ট করুন"
+                            className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                            title="মেমো প্রিন্ট ও শেয়ার করুন"
                           >
                             <Printer className="h-4 w-4" />
                           </button>
@@ -1168,7 +1132,7 @@ function SalesInvoicesContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100">
-                      {selectedInvoice.customerDuesBreakdown.map((due, idx) => (
+                      {selectedInvoice.customerDuesBreakdown.map((due: any, idx: number) => (
                         <tr key={idx}>
                           <td className="py-1.5 px-3 font-bold">{due.shopName || due.customerName}</td>
                           <td className="py-1.5 px-3 text-right font-black text-rose-700">{formatBanglaCurrency(due.dueAmount)}</td>
@@ -1207,7 +1171,7 @@ function SalesInvoicesContent() {
                 </div>
                 <div className="flex justify-between font-black text-amber-900">
                   <span>অবশিষ্ট বাকি (Due Amount):</span>
-                  <span>{formatBanglaCurrency(selectedInvoice.dueAmount || Math.max(0, selectedInvoice.netTotal - selectedInvoice.cashPaid))}</span>
+                  <span>{formatBanglaCurrency(selectedInvoice.dueAmount || Math.max(0, (selectedInvoice.netTotal || 0) - (selectedInvoice.cashPaid || 0)))}</span>
                 </div>
               </div>
 
@@ -1219,7 +1183,7 @@ function SalesInvoicesContent() {
                 onClick={() => {
                   const invToReturn = selectedInvoice;
                   setSelectedInvoice(null);
-                  handleOpenReturnModal(invToReturn);
+                  // handleOpenReturnModal(invToReturn); // This should be defined or removed
                 }}
                 className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition cursor-pointer"
               >
@@ -1246,128 +1210,36 @@ function SalesInvoicesContent() {
         </div>
       )}
 
-      {/* PRINTABLE MEMO TEMPLATE FOR WINDOW.PRINT */}
+      {/* Universal Print Modal */}
       {selectedInvoice && (
-        <div className="hidden print:block absolute inset-0 bg-white text-black p-8 font-sans space-y-6 z-[100] h-screen w-screen" id="printable-sales-invoice">
-          
-          <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-            <p className="font-serif text-sm font-semibold tracking-wider text-slate-800">
-              بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
-            </p>
-            <h1 className="font-black text-2xl tracking-wide uppercase mt-1">{configuredBusinessName}</h1>
-            <p className="text-xs font-bold text-slate-700">পরিচালনায়: {configuredOwner}</p>
-            <p className="text-[11px] text-slate-600">খাতুনগঞ্জ, চট্টগ্রাম • মোবাইল: {configuredPhone}</p>
-            <div className="pt-1">
-              <span className="inline-block border border-slate-800 px-3 py-0.5 text-xs font-black uppercase">
-                Sales Invoice
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 border-b border-slate-300 pb-3 text-xs">
-            <div>
-              <span className="font-bold text-slate-600 block">ইনভয়েস নং:</span>
-              <span className="font-black text-sm text-slate-900">{toBanglaNumerals(selectedInvoice.invoiceNo)}</span>
-              <span className="font-bold text-slate-600 block mt-1">ডিএসআর নাম:</span>
-              <span className="font-bold text-slate-900">{selectedInvoice.dsrName || 'N/A'}</span>
-              <span className="font-bold text-slate-600 block mt-1">বাজার / রুট:</span>
-              <span className="font-bold text-slate-900">{selectedInvoice.customerName}</span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-slate-600 block">তারিখ:</span>
-              <span className="font-bold text-slate-900">{formatBanglaDate(selectedInvoice.date)}</span>
-              <span className="font-bold text-slate-600 block mt-1">নোট / কৈফিয়ত:</span>
-              <span className="text-slate-800 font-semibold">{selectedInvoice.remarks}</span>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-xs uppercase mb-2 border-b border-slate-800 pb-1">পণ্যের বিবরণ</h3>
-            <table className="w-full text-left border-collapse my-2">
-              <thead>
-                <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black text-slate-900">
-                  <th className="py-1.5">ক্রম</th>
-                  <th className="py-1.5">পণ্য ও কোম্পানি</th>
-                  <th className="py-1.5 text-center">চালুকৃত (পিস)</th>
-                  <th className="py-1.5 text-center">ফেরত (পিস)</th>
-                  <th className="py-1.5 text-center">প্রকৃত বিক্রি</th>
-                  <th className="py-1.5 text-right">একক মূল্য</th>
-                  <th className="py-1.5 text-right">মোট টাকা</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs">
-                {selectedInvoice.items?.map((item, idx) => {
-                  const retPcs = item.returnedQty || 0;
-                  const netPcs = item.netQty !== undefined ? item.netQty : item.qty - retPcs;
-                  return (
-                    <tr key={idx} className="py-2">
-                      <td className="py-2 font-bold">{toBanglaNumerals(idx + 1)}</td>
-                      <td className="py-2 font-bold">{item.name}</td>
-                      <td className="py-2 text-center font-bold">{formatBanglaNumber(item.qty)}</td>
-                      <td className="py-2 text-center font-bold text-slate-700">{retPcs > 0 ? formatBanglaNumber(retPcs) : '-'}</td>
-                      <td className="py-2 text-center font-black">{formatBanglaNumber(netPcs)}</td>
-                      <td className="py-2 text-right">{formatBanglaCurrency(item.price)}</td>
-                      <td className="py-2 text-right font-black">{formatBanglaCurrency(item.total)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-300">
-            <div className="text-xs space-y-1 bg-slate-50 p-3 rounded border border-slate-200">
-              <span className="font-bold block text-slate-800">পরিশোধ বিবরণী:</span>
-              <div className="flex justify-between border-b border-slate-200 pb-1">
-                <span>নগদ আদায় (Collection):</span>
-                <span className="font-bold">{formatBanglaCurrency(selectedInvoice.cashPaid)}</span>
-              </div>
-              <div className="flex justify-between pt-1">
-                <span>মোট বাকি (Due):</span>
-                <span className="font-bold text-rose-700">{formatBanglaCurrency(selectedInvoice.dueAmount || 0)}</span>
-              </div>
-            </div>
-
-            <div className="text-xs space-y-1.5 font-semibold text-slate-800">
-              <div className="flex justify-between">
-                <span>Gross Sales:</span>
-                <span>{formatBanglaCurrency(selectedInvoice.subTotal)}</span>
-              </div>
-              {selectedInvoice.totalReturnedAmount && selectedInvoice.totalReturnedAmount > 0 ? (
-                <div className="flex justify-between text-amber-800 font-bold">
-                  <span>ফেরতকৃত মালের মূল্য:</span>
-                  <span>- {formatBanglaCurrency(selectedInvoice.totalReturnedAmount)}</span>
-                </div>
-              ) : null}
-              {selectedInvoice.discount > 0 && (
-                <div className="flex justify-between text-rose-700">
-                  <span>ছাড়:</span>
-                  <span>- {formatBanglaCurrency(selectedInvoice.discount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t-2 border-slate-900 pt-1 font-black text-sm">
-                <span>Net Sales (সর্বমোট পরিশোধযোগ্য):</span>
-                <span>{formatBanglaCurrency(selectedInvoice.netTotal)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-between w-full mt-16 pt-6 border-t border-slate-300 text-xs text-slate-600">
-            <div className="text-center w-1/3">
-              <div className="h-6 border-b border-dashed border-slate-400"></div>
-              <span className="mt-1 block font-bold">গ্রহীতার স্বাক্ষর</span>
-            </div>
-            <div className="text-center w-1/3">
-              <div className="h-6 border-b border-dashed border-slate-400"></div>
-              <span className="mt-1 block font-bold">প্রস্তুতকারক</span>
-            </div>
-            <div className="text-center w-1/3">
-              <div className="h-6 border-b border-dashed border-slate-400"></div>
-              <span className="mt-1 block font-bold">ফর {configuredBusinessName}</span>
-            </div>
-          </div>
-
-        </div>
+        <UniversalPrintModal 
+          isOpen={showPrintModal}
+          onClose={() => setShowPrintModal(false)}
+          title="সেলস ইনভয়েস ও ক্যাশ মেমো"
+          type="invoice"
+          compName={compName}
+          compAddress={compAddress}
+          data={{
+            invoiceNo: selectedInvoice.invoiceNo,
+            date: formatBanglaDate(selectedInvoice.date),
+            customerName: selectedInvoice.customerName,
+            dsrName: selectedInvoice.dsrName,
+            routeName: routes.find(r => r.id === selectedInvoice.routeId)?.routeName || 'N/A',
+            items: selectedInvoice.items?.map((item: any) => ({
+              productName: item.name,
+              qty: item.qty,
+              returnedQty: item.returnedQty || 0,
+              soldQty: item.netQty !== undefined ? item.netQty : (item.qty - (item.returnedQty || 0)),
+              rate: item.price,
+              subtotal: item.total
+            })),
+            subtotal: selectedInvoice.subTotal,
+            discount: selectedInvoice.discount,
+            netTotal: selectedInvoice.netTotal,
+            cashPaid: selectedInvoice.cashPaid,
+            dueAmount: selectedInvoice.dueAmount
+          }}
+        />
       )}
 
     </div>

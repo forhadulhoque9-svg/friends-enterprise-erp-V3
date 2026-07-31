@@ -23,8 +23,10 @@ import {
   Sparkles,
   BarChart3,
   DollarSign,
-  X
+  X,
+  Printer
 } from 'lucide-react';
+import UniversalPrintModal from '../components/UniversalPrintModal';
 
 // Bangla Numerals Converter
 export function toBanglaNumerals(num: number | string | undefined | null): string {
@@ -88,6 +90,11 @@ export function formatUnitBreakdown(totalPieces: number, cartonSize?: number): s
 }
 
 export default function Inventory() {
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printData, setPrintData] = useState<any>(null);
+  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
+  const [compAddress] = useState('তেজগাঁও, ঢাকা');
+
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('');
@@ -290,9 +297,34 @@ export default function Inventory() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-bold text-slate-200">
-          <Sparkles className="h-4 w-4 text-amber-400" />
-          <span>এফএমসিজি ডিস্ট্রিবিউশন ওয়্যারহাউস</span>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <button 
+            onClick={() => {
+              const stockItems = filteredProducts.map(p => ({
+                name: p.name,
+                openingStock: 0, 
+                received: 0,    
+                sold: 0,        
+                currentStock: p.stock || 0,
+                costPrice: p.purchasePrice || p.edp || 0,
+                minStock: p.reorderLevel || 5
+              }));
+              setPrintData({
+                items: stockItems,
+                totalValue: totalStockValue
+              });
+              setShowPrintModal(true);
+            }}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl text-xs font-bold text-white transition shadow-sm cursor-pointer"
+          >
+            <Printer className="h-4 w-4" />
+            <span>স্টক রিপোর্ট প্রিন্ট ও শেয়ার</span>
+          </button>
+
+          <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-bold text-slate-200">
+            <Sparkles className="h-4 w-4 text-amber-400" />
+            <span>এফএমসিজি ডিস্ট্রিবিউশন ওয়্যারহাউস</span>
+          </div>
         </div>
       </div>
 
@@ -804,6 +836,17 @@ export default function Inventory() {
           </div>
         </div>
       )}
+
+      {/* Universal Print Modal */}
+      <UniversalPrintModal 
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title="স্টক ইনভেন্টরি ও মালামাল রিপোর্ট"
+        type="stock"
+        compName={compName}
+        compAddress={compAddress}
+        data={printData}
+      />
 
     </div>
   );

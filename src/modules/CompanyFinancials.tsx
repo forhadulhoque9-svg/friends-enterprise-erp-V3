@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import UniversalPrintModal from '../components/UniversalPrintModal';
 import { 
   db, 
   approveDamageReturn, 
@@ -20,7 +21,8 @@ import {
   AlertCircle, 
   ToggleLeft, 
   ToggleRight, 
-  UserPlus 
+  UserPlus,
+  Printer
 } from 'lucide-react';
 
 export default function CompanyFinancials() {
@@ -30,6 +32,12 @@ export default function CompanyFinancials() {
   // Modal toggle states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
+
+  // Print Preview State
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printData, setPrintData] = useState<any>(null);
+  const [compName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
+  const [compAddress] = useState('তেজগাঁও, ঢাকা');
 
   // Form states - Damages
   const [dmgCompanyId, setDmgCompanyId] = useState('');
@@ -79,6 +87,22 @@ export default function CompanyFinancials() {
     setSchTriggerQty(10); setSchRewardQty(1); setSchDiscountPercent(0); setSchRemarks('');
     
     setIsModalOpen(true);
+  };
+
+  const handlePrintDamage = (dmg: CompanyDamage) => {
+    const comp = companies?.find(c => c.id === dmg.companyId);
+    const prod = products?.find(p => p.id === dmg.productId);
+    
+    setPrintData({
+      id: dmg.id,
+      companyName: comp?.name || 'Unknown',
+      productName: prod?.name || 'Unknown',
+      qty: dmg.qty,
+      value: dmg.damageValue,
+      remarks: dmg.remarks,
+      date: new Date(parseInt(dmg.id.split('_')[1])).toLocaleDateString()
+    });
+    setShowPrintModal(true);
   };
 
   const handleSaveDamage = async () => {
@@ -313,6 +337,13 @@ export default function CompanyFinancials() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="flex justify-center gap-1.5">
+                        <button 
+                          onClick={() => handlePrintDamage(d)}
+                          className="rounded-lg bg-slate-100 p-1.5 text-slate-600 hover:bg-slate-200 transition"
+                          title="প্রিন্ট স্লিপ"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                        </button>
                         {d.status === 'Pending' && (
                           <button 
                             onClick={() => handleApproveDamage(d.id)}
@@ -802,6 +833,17 @@ export default function CompanyFinancials() {
           </div>
         </div>
       )}
+
+      {/* Universal Print Modal */}
+      <UniversalPrintModal 
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title="ড্যামেজ ও পণ্য ফেরত স্লিপ"
+        type="damage"
+        compName={compName}
+        compAddress={compAddress}
+        data={printData}
+      />
 
     </div>
   );

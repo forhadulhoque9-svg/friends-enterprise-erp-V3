@@ -24,8 +24,12 @@ import {
   Layers,
   Box,
   BadgeCheck,
-  RotateCcw
+  RotateCcw,
+  MessageCircle,
+  FileDown,
+  Image as ImageIcon
 } from 'lucide-react';
+import UniversalPrintModal from '../components/UniversalPrintModal';
 
 // Helper: Convert numbers to Bangla digits
 export function toBanglaNumerals(num: number | string | undefined | null): string {
@@ -71,6 +75,11 @@ export function formatBanglaDate(dateString: string | Date): string {
 }
 
 export default function DamageManagement() {
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printData, setPrintData] = useState<any>(null);
+  const [cName] = useState('মেসার্স ফাহিম এন্টারপ্রাইজ');
+  const [cAddress] = useState('তেজগাঁও, ঢাকা');
+
   // Live Dexie Database Queries
   const damages = useLiveQuery(() => db.companyDamages.toArray()) || [];
   const companies = useLiveQuery(() => db.companies.toArray()) || [];
@@ -717,6 +726,23 @@ export default function DamageManagement() {
                           {/* Actions */}
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setPrintData({
+                                    id: d.id,
+                                    companyName: d.companyName,
+                                    productName: d.productName,
+                                    qty: d.qty,
+                                    value: d.damageValue,
+                                    remarks: d.remarks
+                                  });
+                                  setShowPrintModal(true);
+                                }}
+                                className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                                title="প্রিন্ট স্লিপ"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </button>
                               {d.status === 'Pending' && (
                                 <button
                                   onClick={() => handleApprove(d.id, d.productName)}
@@ -1452,6 +1478,17 @@ export default function DamageManagement() {
 
         </div>
       )}
+
+      {/* Universal Print Modal */}
+      <UniversalPrintModal 
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title="ড্যামেজ ও রিটার্ন স্লিপ"
+        type="damage"
+        compName={cName}
+        compAddress={cAddress}
+        data={printData}
+      />
 
       {/* PRINT MEDIA STYLES INJECTION */}
       <style>{`

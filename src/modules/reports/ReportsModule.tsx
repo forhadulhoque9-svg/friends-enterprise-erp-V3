@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getCashBalance } from '../../db/db';
-import html2pdf from 'html2pdf.js';
+import UniversalPrintModal from '../../components/UniversalPrintModal';
+import { formatBanglaCurrency, toBanglaNumerals } from '../../lib/utils';
 import { 
   FileText, BarChart3, Scale, ArrowUpRight, ArrowDownRight, 
   Download, Printer, TrendingUp, TrendingDown, DollarSign, 
@@ -10,16 +11,12 @@ import {
 } from 'lucide-react';
 
 
-export function formatBanglaCurrency(amount: number | string | undefined | null): string { if (amount === undefined || amount === null) return '৳০.০০'; const num = typeof amount === 'string' ? parseFloat(amount) : amount; if (isNaN(num)) return '৳০.০০'; const formatted = num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); const banglaDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯']; return '৳' + formatted.replace(/[0-9]/g, w => banglaDigits[parseInt(w)]); }
-export function toBanglaNumerals(num: number | string | undefined | null): string { if (num === undefined || num === null) return '০'; const str = num.toString(); const banglaDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯']; return str.replace(/[0-9]/g, w => banglaDigits[parseInt(w)]); }
-
 export default function ReportsModule() {
   const [activeTab, setActiveTab] = useState<'pnl' | 'trial_balance' | 'cash_flow'>('pnl');
   const [dateFilter, setDateFilter] = useState<'today' | 'this_week' | 'this_month' | 'custom'>('this_month');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
 
   // Live queries for Financial Reports calculation
   const salesInvoices = useLiveQuery(() => db.salesInvoices.toArray()) || [];
@@ -167,21 +164,6 @@ export default function ReportsModule() {
     document.body.removeChild(link);
   };
 
-  const handleDownloadPDF = () => {
-    if (!printRef.current) return;
-    
-    const element = printRef.current;
-    const opt = {
-      margin: [10, 10, 10, 10] as [number, number, number, number],
-      filename: `Income_Statement_${compName}_${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
-    };
-
-    html2pdf().set(opt).from(element).save();
-  };
-
   return (
     <div className="max-w-6xl mx-auto space-y-6" id="reports-module">
 
@@ -304,127 +286,25 @@ export default function ReportsModule() {
         </div>
       </div>
 
-      {/* ----------------- PRINT PREVIEW MODAL ----------------- */}
-      {showPrintModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 md:p-8 overflow-hidden print:hidden">
-          <div className="bg-white w-full max-w-4xl max-h-full flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <Printer className="h-5 w-5 text-indigo-600" />
-                <h2 className="font-sans font-black text-slate-900">প্রিন্ট প্রিভিউ (Print Preview)</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="flex items-center gap-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 py-2 px-4 text-xs font-bold shadow-sm transition"
-                >
-                  <FileDown className="h-4 w-4" /> ডাউনলোড PDF (Download PDF)
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 py-2 px-4 text-xs font-bold shadow-sm transition"
-                >
-                  <Printer className="h-4 w-4" /> প্রিন্ট করুন (Print Now)
-                </button>
-                <button
-                  onClick={() => setShowPrintModal(false)}
-                  className="flex items-center justify-center h-9 w-9 rounded-full bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content - The actual A4 Sheet */}
-            <div className="flex-1 overflow-y-auto p-8 bg-slate-200/30 flex justify-center">
-              <div 
-                ref={printRef}
-                className="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-lg font-sans text-slate-900"
-                style={{ height: 'fit-content' }}
-              >
-                <div className="text-center pb-6 border-b-2 border-slate-900 mb-8">
-                  <h1 className="text-3xl font-black tracking-tight">{compName}</h1>
-                  <p className="text-sm font-bold text-slate-600 mt-1">{compAddress}</p>
-                  <h2 className="text-xl font-bold mt-6 underline decoration-slate-300 underline-offset-8">মাসিক আয়-ব্যয় ও লাভ-ক্ষতির বিবরণী</h2>
-                  <p className="text-sm font-bold mt-4 text-slate-700 bg-slate-100 py-1 px-4 rounded-full inline-block">
-                    তারিখ সীমা: {dateFilter === 'today' ? 'আজ' : dateFilter === 'this_week' ? 'চলতি সপ্তাহ' : dateFilter === 'this_month' ? 'চলতি মাস' : dateFilter === 'custom' ? `${customStartDate} থেকে ${customEndDate}` : 'সব সময়'}
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-3 font-mono">প্রিন্ট জেনারেট সময়: {new Date().toLocaleString()}</p>
-                </div>
-
-                <div className="space-y-6">
-                  <table className="w-full text-base border-collapse">
-                    <tbody>
-                      <tr>
-                        <td className="py-3 border-b border-slate-200 font-bold">(+) মোট ইনভয়েস বিক্রয় (Gross Sales)</td>
-                        <td className="py-3 border-b border-slate-200 text-right font-mono font-black">{formatBanglaCurrency(totalGrossSales)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 border-b border-slate-200 font-bold text-slate-500">(-) বিক্রয় ফেরত ও ড্যামেজ ছাড় (Damage & Sales Returns)</td>
-                        <td className="py-3 border-b border-slate-200 text-right font-mono text-slate-500">- {formatBanglaCurrency(totalSalesReturns)}</td>
-                      </tr>
-                      <tr className="bg-slate-50">
-                        <td className="py-3 px-3 font-black text-indigo-900 border-l-4 border-indigo-500">= নিট বিক্রয় আয় (Net Sales Revenue)</td>
-                        <td className="py-3 px-3 text-right font-mono font-black text-indigo-900">{formatBanglaCurrency(totalNetSales)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 border-b border-slate-200 font-bold text-slate-500">(-) বিক্রিত পণ্যের মূল ক্রয়মূল্য (COGS)</td>
-                        <td className="py-3 border-b border-slate-200 text-right font-mono text-slate-500">- {formatBanglaCurrency(totalCOGS)}</td>
-                      </tr>
-                      <tr className="bg-emerald-50">
-                        <td className="py-3 px-3 font-black text-emerald-900 border-l-4 border-emerald-500">= পণ্য বিক্রির নিট লাভ (Gross Profit)</td>
-                        <td className="py-3 px-3 text-right font-mono font-black text-emerald-900">{formatBanglaCurrency(grossProfit)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 border-b border-slate-200 font-bold text-emerald-700">(+) কোম্পানি ইনসেন্টিভ ও ক্লেইম জমা (Incentive & Claims)</td>
-                        <td className="py-3 border-b border-slate-200 text-right font-mono font-black text-emerald-700">+ {formatBanglaCurrency(totalIncentiveIncome)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-6 font-black text-lg underline decoration-slate-200" colSpan={2}>পরিচালন খরচ ব্রেকডাউন (Operating Expenses):</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 pl-6 text-slate-600 font-medium">ডিএসআর/টিএ-ডিএ খরচ (DSR & Allowances)</td>
-                        <td className="py-2 text-right font-mono text-slate-600">{formatBanglaCurrency(dsrExpenses)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 pl-6 text-slate-600 font-medium">গাড়ি ও পরিবহন খরচ (Transport)</td>
-                        <td className="py-2 text-right font-mono text-slate-600">{formatBanglaCurrency(transportExpenses)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 pl-6 text-slate-600 font-medium">গ্যারেজ ও গোডাউন ভাড়া (Rent)</td>
-                        <td className="py-2 text-right font-mono text-slate-600">{formatBanglaCurrency(rentExpenses)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 pl-6 text-slate-600 font-medium">স্টাফ ও অফিস খরচ (Salaries)</td>
-                        <td className="py-2 text-right font-mono text-slate-600">{formatBanglaCurrency(staffExpenses)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 pl-6 text-slate-600 font-medium border-b border-slate-200">ইউটিলিটি ও অন্যান্য খরচ (Utilities)</td>
-                        <td className="py-2 border-b border-slate-200 text-right font-mono text-slate-600">{formatBanglaCurrency(utilityExpenses)}</td>
-                      </tr>
-                      <tr className="bg-rose-50">
-                        <td className="py-3 px-3 font-black text-rose-900 border-l-4 border-rose-500">= মোট পরিচালন খরচ (Total Operating Expenses)</td>
-                        <td className="py-3 px-3 text-right font-mono font-black text-rose-900">- {formatBanglaCurrency(totalOperatingExpenses)}</td>
-                      </tr>
-                      <tr className="border-t-2 border-slate-900 border-b-4 mt-4 bg-slate-900 text-white">
-                        <td className="py-5 px-4 text-xl font-black uppercase tracking-tight">চূড়ান্ত নিট লাভ / ক্ষতি (NET OPERATING PROFIT / LOSS)</td>
-                        <td className="py-5 px-4 text-right font-mono text-2xl font-black">{formatBanglaCurrency(netOperatingProfit)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mt-32 grid grid-cols-3 gap-12 text-center text-[12px] font-bold uppercase tracking-wider text-slate-700">
-                  <div className="border-t-2 border-slate-200 pt-3">প্রস্তুতকারক<br/><span className="text-[10px] text-slate-400 font-medium">(Prepared By)</span></div>
-                  <div className="border-t-2 border-slate-200 pt-3">হিসাবরক্ষক<br/><span className="text-[10px] text-slate-400 font-medium">(Accountant)</span></div>
-                  <div className="border-t-2 border-slate-200 pt-3">স্বত্বাধিকারী/ম্যানেজার<br/><span className="text-[10px] text-slate-400 font-medium">(Proprietor/Manager)</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Universal Print Modal */}
+      <UniversalPrintModal 
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        title="মাসিক আয়-ব্যয় ও লাভ-ক্ষতির বিবরণী"
+        type="pnl"
+        compName={compName}
+        compAddress={compAddress}
+        data={{
+          totalGrossSales,
+          totalSalesReturns,
+          totalNetSales,
+          totalCOGS,
+          grossProfit,
+          totalIncentiveIncome,
+          totalOperatingExpenses,
+          netOperatingProfit
+        }}
+      />
 
       {/* Report Switcher Tabs */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-3">
