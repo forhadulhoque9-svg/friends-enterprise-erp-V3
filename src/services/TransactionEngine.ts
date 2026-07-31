@@ -62,7 +62,7 @@ export async function recordStockLedger(
  */
 export async function recordCashTransaction(
   date: string,
-  type: 'Sales_Collection' | 'Purchase_Payment' | 'Hawlat_Cash' | 'Expense' | 'Other',
+  type: 'Sales_Collection' | 'Purchase_Payment' | 'Hawlat_Cash' | 'Expense' | 'Other' | 'Hawlat_Custody_Out' | 'Bank_Deposit_In',
   refId: string,
   cashIn: number,
   cashOut: number,

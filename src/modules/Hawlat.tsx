@@ -1226,7 +1226,7 @@ export default function HawlatModule() {
                         const isCashOut = entry.cashAmount < 0;
 
                         let typeBadgeClass = 'bg-slate-100 text-slate-800';
-                        let typeLabelBangla = entry.type;
+                        let typeLabelBangla: string = entry.type;
 
                         if (entry.type === 'Cash_Lend') {
                           typeBadgeClass = 'bg-rose-100 text-rose-800';

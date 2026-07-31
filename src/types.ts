@@ -110,8 +110,10 @@ export interface Product extends BaseEntity {
   purchasePrice: number;          // Standard base DP (Distributor Price per piece)
   purchasePriceCarton?: number;    // Purchase price per carton
   purchasePricePcs?: number;       // Purchase price per piece
+  dp?: number;                     // Distributor price alias
   edp?: number;                   // Effective DP cost (backward compatibility)
   retailPrice: number;            // standard base MRP (Selling Price per piece)
+  sellingPrice?: number;          // Retail price alias
   salesPriceCarton?: number;       // Sales price per carton
   salesPricePcs?: number;          // Sales price per piece
   profit?: number;
@@ -323,7 +325,7 @@ export interface CashTransaction extends StandardLedgerEntry {
   cashOut: number;
   // Compatibility fields
   date: string;
-  type: 'Sales_Collection' | 'Purchase_Payment' | 'Hawlat_Cash' | 'Expense' | 'Other';
+  type: 'Sales_Collection' | 'Purchase_Payment' | 'Hawlat_Cash' | 'Expense' | 'Other' | 'Hawlat_Custody_Out' | 'Bank_Deposit_In';
   refId: string;
   balance: number;
 }
