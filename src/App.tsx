@@ -45,7 +45,8 @@ import {
   FileCheck,
   UserCheck,
   HardDrive,
-  RotateCcw
+  RotateCcw,
+  Wallet
 } from 'lucide-react';
 
 type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'financials' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'route-sales' | 'business-profile' | 'settings' | 'expenses';
@@ -308,7 +309,7 @@ export default function App() {
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'expenses' ? 'bg-rose-50 text-rose-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-expenses"
           >
-            <Coins className="h-4 w-4 text-rose-600" /> খরচের খাতা (Daily Expenses)
+            <Wallet className="h-4 w-4 text-rose-600" /> খরচের খাতা (Daily Expenses)
           </button>
 
           <button 
@@ -397,6 +398,7 @@ export default function App() {
                 <option value="route-sales">Route Sales</option>
                 <option value="purchases">Purchases</option>
                 <option value="financials">Financials</option>
+                <option value="expenses">খরচের খাতা (Daily Expenses)</option>
                 <option value="damage">ড্যামেজ ও ক্লেম (Damage & Claims)</option>
                 <option value="reports">Financial Reports</option>
                 <option value="hawlat">Hawlat</option>
