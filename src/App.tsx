@@ -46,7 +46,8 @@ import {
   UserCheck,
   HardDrive,
   RotateCcw,
-  Wallet
+  Wallet,
+  PieChart
 } from 'lucide-react';
 
 type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'financials' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'route-sales' | 'business-profile' | 'settings' | 'expenses';
@@ -322,10 +323,10 @@ export default function App() {
 
           <button 
             onClick={() => setActiveTab('reports')}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'reports' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'reports' ? 'bg-indigo-50 text-indigo-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
             id="nav-reports"
           >
-            <BarChart3 className="h-4 w-4" /> Financial Reports
+            <PieChart className="h-4 w-4" /> লাভ-ক্ষতির হিসাব (Profit & Loss)
           </button>
 
           <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Bespoke Ledgers</span>
