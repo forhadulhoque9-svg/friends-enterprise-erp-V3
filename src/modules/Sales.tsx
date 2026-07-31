@@ -81,13 +81,17 @@ export interface CartItem {
   productId: string;
   productName: string;
   companyName: string;
-  cartonQty: number;      // Carton Quantity
-  pieceQty: number;       // Piece Quantity
-  cartonSize: number;     // Pieces per carton
-  baseQty: number;        // Total Pieces = (cartonQty * cartonSize) + pieceQty
-  sellingPrice: number;   // Rate per piece
+  cartonQty: number;            // Delivered Carton
+  pieceQty: number;             // Delivered Loose Piece
+  returnedCartonQty: number;    // Returned Carton
+  returnedPieceQty: number;     // Returned Loose Piece
+  cartonSize: number;           // Pieces per carton
+  baseQty: number;              // Total Delivered Pieces = (cartonQty * cartonSize) + pieceQty
+  returnedBaseQty: number;      // Total Returned Pieces = (returnedCartonQty * cartonSize) + returnedPieceQty
+  netBaseQty: number;           // Net Sold Pieces = baseQty - returnedBaseQty
+  sellingPrice: number;         // Rate per piece
   discountPercent: number;
-  totalSales: number;     // Total Amount = baseQty * sellingPrice - discount
+  totalSales: number;           // Net Total Amount = Math.max(0, netBaseQty * sellingPrice - discount)
   totalPurchaseCost: number;
 }
 
@@ -155,6 +159,8 @@ export default function Sales() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [inputCartonQty, setInputCartonQty] = useState<number>(0);
   const [inputPieceQty, setInputPieceQty] = useState<number>(0);
+  const [inputReturnedCartonQty, setInputReturnedCartonQty] = useState<number>(0);
+  const [inputReturnedPieceQty, setInputReturnedPieceQty] = useState<number>(0);
   const [inputRate, setInputRate] = useState<number>(0);
   const [inputDiscount, setInputDiscount] = useState<number>(0);
 
@@ -217,7 +223,7 @@ export default function Sales() {
     setInvoiceNo(`FE-SL-${Date.now().toString().slice(-6)}`);
   };
 
-  // Add Product Item to Cart (Supporting Carton & Piece simultaneously)
+  // Add Product Item to Cart (Supporting Carton, Piece & Direct Return/Damage simultaneously)
   const handleAddCartItem = () => {
     setErrorMsg('');
     if (!selectedProductId || !currentDraftProduct) {
@@ -226,17 +232,25 @@ export default function Sales() {
     }
 
     const cartonSize = currentDraftProduct.cartonSize && currentDraftProduct.cartonSize > 0 ? currentDraftProduct.cartonSize : 24;
-    const totalPieces = (inputCartonQty * cartonSize) + inputPieceQty;
+    const totalDeliveredPieces = (inputCartonQty * cartonSize) + inputPieceQty;
+    const totalReturnedPieces = (inputReturnedCartonQty * cartonSize) + inputReturnedPieceQty;
 
-    if (totalPieces <= 0) {
-      setErrorMsg('কার্টুন বা পিস পরিমাণ অন্তত ১ হতে হবে।');
+    if (totalDeliveredPieces <= 0 && totalReturnedPieces <= 0) {
+      setErrorMsg('কার্টুন/পিস অথবা ফেরত পরিমাণ অন্তত ১ হতে হবে।');
       return;
     }
 
-    if (totalPieces > currentDraftProduct.stock) {
+    if (totalReturnedPieces > totalDeliveredPieces) {
+      setErrorMsg('ফেরত/ড্যামেজ পরিমাণ সরবরাহের চেয়ে বেশি হতে পারে না!');
+      return;
+    }
+
+    if (totalDeliveredPieces > currentDraftProduct.stock) {
       setErrorMsg(`স্টকে পর্যাপ্ত পণ্য নেই! বর্তমান স্টক: ${formatBanglaNumber(currentDraftProduct.stock)} পিস।`);
       return;
     }
+
+    const netPieces = Math.max(0, totalDeliveredPieces - totalReturnedPieces);
 
     const matchedCompany = companies?.find(c => c.id === currentDraftProduct.companyId || c.name === currentDraftProduct.brand);
     const companyName = matchedCompany ? matchedCompany.name : (currentDraftProduct.brand || 'সাধারণ কোম্পানি');
@@ -244,10 +258,11 @@ export default function Sales() {
     const sellingPrice = inputRate > 0 ? inputRate : (currentDraftProduct.retailPrice || 0);
     const purchasePrice = currentDraftProduct.edp || currentDraftProduct.purchasePrice || 0;
     
-    const grossPrice = totalPieces * sellingPrice;
+    // Automatic Net Calculation for Net Sold Items
+    const grossPrice = netPieces * sellingPrice;
     const itemDiscountVal = (grossPrice * inputDiscount) / 100;
     const totalSales = Math.max(0, grossPrice - itemDiscountVal);
-    const totalPurchaseCost = totalPieces * purchasePrice;
+    const totalPurchaseCost = netPieces * purchasePrice;
 
     const newItem: CartItem = {
       id: `cart_${Date.now()}_${selectedProductId}`,
@@ -256,8 +271,12 @@ export default function Sales() {
       companyName,
       cartonQty: inputCartonQty,
       pieceQty: inputPieceQty,
+      returnedCartonQty: inputReturnedCartonQty,
+      returnedPieceQty: inputReturnedPieceQty,
       cartonSize,
-      baseQty: totalPieces,
+      baseQty: totalDeliveredPieces,
+      returnedBaseQty: totalReturnedPieces,
+      netBaseQty: netPieces,
       sellingPrice,
       discountPercent: inputDiscount,
       totalSales,
@@ -270,6 +289,8 @@ export default function Sales() {
     setSelectedProductId('');
     setInputCartonQty(0);
     setInputPieceQty(0);
+    setInputReturnedCartonQty(0);
+    setInputReturnedPieceQty(0);
     setInputRate(0);
     setInputDiscount(0);
   };
@@ -442,7 +463,7 @@ export default function Sales() {
         items: cartItems.map(item => ({
           productId: item.productId,
           name: `${item.productName} (${item.companyName})`,
-          qty: item.baseQty,
+          qty: item.netBaseQty !== undefined ? item.netBaseQty : item.baseQty,
           price: item.sellingPrice,
           discount: item.discountPercent,
           total: item.totalSales,
@@ -458,7 +479,49 @@ export default function Sales() {
         remarks: `সময়: ${invoiceTime} | ডিএসআর: ${finalDsrName} | বাজার: ${marketName || 'সাধারণ'} | কাস্টমার: ${customerName || 'N/A'} ${customerMobile ? `(${customerMobile})` : ''} | ড্যামেজ: ৳${totalDamageValue} | দোকান কমিশন: ৳${shopCommission}`
       };
 
-      // Process Damage Returns if any exist
+      // Process Direct Return/Damage from Product Entry items straight to db.companyDamages
+      for (const item of cartItems) {
+        if (item.returnedBaseQty && item.returnedBaseQty > 0) {
+          const prod = products?.find(p => p.id === item.productId);
+          const matchedCompany = companies?.find(c => c.id === prod?.companyId || c.name === item.companyName);
+          const compId = prod?.companyId || matchedCompany?.id || 'company_default';
+          const compName = item.companyName || matchedCompany?.name || 'সাধারণ কোম্পানি';
+          const unitPrice = prod?.edp || prod?.purchasePrice || prod?.retailPrice || item.sellingPrice || 0;
+          const damageVal = item.returnedBaseQty * unitPrice;
+
+          await db.companyDamages.add({
+            id: `dmg_inv_${Date.now()}_${item.productId}`,
+            companyId: compId,
+            companyName: compName,
+            productId: item.productId,
+            productName: item.productName,
+            qty: item.returnedBaseQty,
+            cartons: item.returnedCartonQty || Math.floor(item.returnedBaseQty / item.cartonSize),
+            loosePcs: item.returnedPieceQty || (item.returnedBaseQty % item.cartonSize),
+            unitPrice: unitPrice,
+            damageValue: damageVal,
+            status: 'Pending',
+            date: todayStr,
+            remarks: `ইনভয়েস #${invoiceNo} হতে সরাসরি ইন-লাইন ফেরত/ড্যামেজ (${item.productName})`,
+            isOpeningStock: false
+          });
+
+          await db.stockLedgers.add({
+            id: `st_damage_${invoiceId}_${item.productId}_${Date.now()}`,
+            productId: item.productId,
+            productName: item.productName,
+            date: todayStr,
+            type: 'Damage',
+            refId: invoiceId,
+            qtyIn: item.returnedBaseQty,
+            qtyOut: 0,
+            balance: 0,
+            remarks: `ইনভয়েস #${invoiceNo} হতে সরাসরি ড্যামেজ ফেরত: ${item.returnedBaseQty} পিস`
+          });
+        }
+      }
+
+      // Process Additional Damage Returns if any exist
       if (damageItems.length > 0) {
         for (const dmg of damageItems) {
           await db.companyDamages.add({
@@ -774,7 +837,7 @@ export default function Sales() {
           </div>
 
           {/* =========================================
-              ২. পণ্য ভুক্তি (PRODUCT ENTRY - Carton & Piece)
+              ২. পণ্য ভুক্তি (PRODUCT ENTRY - Carton, Piece & Direct Return)
              ========================================= */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -784,23 +847,23 @@ export default function Sales() {
                 </div>
                 <div>
                   <h2 className="font-sans font-black text-base text-slate-900 tracking-wide">
-                    ২. পণ্য ভুক্তি (Product Entry - Carton & Piece Sales)
+                    ২. পণ্য ভুক্তি (Product Entry - Carton, Piece & Direct Return)
                   </h2>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    কার্টুন ও পিস উভয়ই স্বাধীনভাবে ইনপুট করুন। মোট পিস ও বিক্রয় মূল্য স্বয়ংসক্রিয়ভাবে হিসাব হবে।
+                    কার্টন, পিস এবং সরাসরি ফেরত কার্টন/পিস ইনপুট করুন। নিট বিক্রি ও মোট মূল্য স্বয়ংক্রিয় হিসাব হবে।
                   </p>
                 </div>
               </div>
               <span className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
-                স্বাধীন কার্টুন + পিস
+                সরাসরি ফেরত/ড্যামেজ ইনপুট সহ
               </span>
             </div>
 
             {/* Product Draft Add Inputs Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 shadow-2xs">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 shadow-2xs">
               
               {/* Product Selector */}
-              <div className="sm:col-span-4">
+              <div className="sm:col-span-3">
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   পণ্য নির্বাচন (Select Product)
                 </label>
@@ -822,40 +885,72 @@ export default function Sales() {
                 </select>
               </div>
 
-              {/* Carton Qty Input */}
-              <div className="sm:col-span-2">
+              {/* Delivered Carton Qty Input */}
+              <div className="sm:col-span-1">
                 <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                  কার্টুন (Carton)
+                  কার্টন
                 </label>
                 <input 
                   type="number"
                   min="0"
                   placeholder="0"
-                  value={inputCartonQty}
+                  value={inputCartonQty || ''}
                   onChange={(e) => setInputCartonQty(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-indigo-300 bg-indigo-50/30 py-2 px-2 text-xs font-black text-center text-indigo-950 focus:border-indigo-600 focus:bg-white focus:outline-none"
+                  className="w-full rounded-lg border border-indigo-300 bg-indigo-50/30 py-2 px-1 text-xs font-black text-center text-indigo-950 focus:border-indigo-600 focus:bg-white focus:outline-none"
                 />
               </div>
 
-              {/* Piece Qty Input */}
-              <div className="sm:col-span-2">
+              {/* Delivered Piece Qty Input */}
+              <div className="sm:col-span-1">
                 <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                  পিস (Piece)
+                  পিস
                 </label>
                 <input 
                   type="number"
                   min="0"
                   placeholder="0"
-                  value={inputPieceQty}
+                  value={inputPieceQty || ''}
                   onChange={(e) => setInputPieceQty(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-indigo-300 bg-indigo-50/30 py-2 px-2 text-xs font-black text-center text-indigo-950 focus:border-indigo-600 focus:bg-white focus:outline-none"
+                  className="w-full rounded-lg border border-indigo-300 bg-indigo-50/30 py-2 px-1 text-xs font-black text-center text-indigo-950 focus:border-indigo-600 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              {/* Direct Return / Damage Carton Qty Input */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-extrabold text-rose-900 mb-1 flex items-center justify-between">
+                  <span>ফেরত কার্টন</span>
+                  <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1 rounded">Return</span>
+                </label>
+                <input 
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={inputReturnedCartonQty || ''}
+                  onChange={(e) => setInputReturnedCartonQty(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-rose-300 bg-rose-50/40 py-2 px-1.5 text-xs font-black text-center text-rose-950 focus:border-rose-600 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              {/* Direct Return / Damage Piece Qty Input */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-extrabold text-rose-900 mb-1 flex items-center justify-between">
+                  <span>ফেরত পিস</span>
+                  <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1 rounded">Return</span>
+                </label>
+                <input 
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={inputReturnedPieceQty || ''}
+                  onChange={(e) => setInputReturnedPieceQty(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-rose-300 bg-rose-50/40 py-2 px-1.5 text-xs font-black text-center text-rose-950 focus:border-rose-600 focus:bg-white focus:outline-none"
                 />
               </div>
 
               {/* Rate per Piece */}
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-1">
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  দর / MRP (৳)
+                  দর (৳)
                 </label>
                 <input 
                   type="number"
@@ -864,7 +959,7 @@ export default function Sales() {
                   placeholder="0.00"
                   value={inputRate || ''}
                   onChange={(e) => setInputRate(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2 px-2 text-xs font-bold text-center text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-2 px-1 text-xs font-bold text-center text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
@@ -900,12 +995,14 @@ export default function Sales() {
             {/* Display Selected Draft Product Live Preview Box */}
             {currentDraftProduct && (() => {
               const cartonSize = currentDraftProduct.cartonSize && currentDraftProduct.cartonSize > 0 ? currentDraftProduct.cartonSize : 24;
-              const totalPieces = (inputCartonQty * cartonSize) + inputPieceQty;
+              const totalDeliveredPieces = (inputCartonQty * cartonSize) + inputPieceQty;
+              const totalReturnedPieces = (inputReturnedCartonQty * cartonSize) + inputReturnedPieceQty;
+              const netPieces = Math.max(0, totalDeliveredPieces - totalReturnedPieces);
               const sellingPrice = inputRate > 0 ? inputRate : (currentDraftProduct.retailPrice || 0);
-              const totalAmount = totalPieces * sellingPrice;
+              const totalAmount = netPieces * sellingPrice;
 
               return (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs bg-indigo-50/80 border border-indigo-200/90 px-4 py-2.5 rounded-xl text-indigo-950 font-medium gap-2 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs bg-indigo-50/90 border border-indigo-200 px-4 py-2.5 rounded-xl text-indigo-950 font-medium gap-2 shadow-2xs">
                   <div className="flex items-center gap-3">
                     <span className="font-extrabold text-indigo-900">{currentDraftProduct.name}</span>
                     <span className="text-[11px] text-slate-600">
@@ -913,14 +1010,20 @@ export default function Sales() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs font-bold">
-                    <span>কার্টুন: <b className="text-indigo-900">{toBanglaNumerals(inputCartonQty)}</b></span>
-                    <span>পিস: <b className="text-indigo-900">{toBanglaNumerals(inputPieceQty)}</b></span>
-                    <span className="text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                      মোট পিস: <b>{toBanglaNumerals(totalPieces)} পিস</b>
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
+                    <span className="bg-white px-2 py-0.5 rounded border border-indigo-100">
+                      চালুকৃত: <b className="text-indigo-900">{toBanglaNumerals(totalDeliveredPieces)} পিস</b>
+                    </span>
+                    {totalReturnedPieces > 0 && (
+                      <span className="bg-rose-100 text-rose-900 px-2 py-0.5 rounded border border-rose-200">
+                        ফেরত/ড্যামেজ: <b>{toBanglaNumerals(totalReturnedPieces)} পিস</b>
+                      </span>
+                    )}
+                    <span className="text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300">
+                      নিট বিক্রি: <b>{toBanglaNumerals(netPieces)} পিস</b>
                     </span>
                     <span className="text-indigo-950 bg-white px-2.5 py-0.5 rounded-md border border-indigo-200 shadow-2xs">
-                      মোট মূল্য: <b>{formatBanglaCurrency(totalAmount)}</b>
+                      নিট মূল্য: <b>{formatBanglaCurrency(totalAmount)}</b>
                     </span>
                   </div>
                 </div>
@@ -934,11 +1037,11 @@ export default function Sales() {
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-[11px] font-bold">
                     <th className="py-2.5 px-3">ক্রম</th>
                     <th className="py-2.5 px-3">পণ্য ও কোম্পানি</th>
-                    <th className="py-2.5 px-3 text-center">কার্টুন</th>
-                    <th className="py-2.5 px-3 text-center">পিস</th>
-                    <th className="py-2.5 px-3 text-center">মোট পিস</th>
+                    <th className="py-2.5 px-3 text-center">চালুকৃত (কার্টন/পিস)</th>
+                    <th className="py-2.5 px-3 text-center text-rose-800 bg-rose-50/50">ফেরত (কার্টন/পিস)</th>
+                    <th className="py-2.5 px-3 text-center text-emerald-900 bg-emerald-50/50">নিট বিক্রি পিস</th>
                     <th className="py-2.5 px-3 text-right">একক মূল্য</th>
-                    <th className="py-2.5 px-3 text-right">মোট বিক্রয়</th>
+                    <th className="py-2.5 px-3 text-right">নিট বিক্রয় মূল্য</th>
                     <th className="py-2.5 px-3 text-center">মুছুন</th>
                   </tr>
                 </thead>
@@ -946,7 +1049,7 @@ export default function Sales() {
                   {cartItems.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
-                        এখনো কোনো পণ্য কার্টে যোগ করা হয়নি। উপরের ফরম থেকে কার্টুন ও পিস ইনপুট দিয়ে যোগ করুন।
+                        এখনো কোনো পণ্য কার্টে যোগ করা হয়নি। উপরের ফরম থেকে কার্টন, পিস ও ফেরত ইনপুট দিয়ে যোগ করুন।
                       </td>
                     </tr>
                   ) : (
@@ -957,14 +1060,22 @@ export default function Sales() {
                           <div className="text-slate-900">{item.productName}</div>
                           <div className="text-[10px] text-slate-400 font-normal">{item.companyName}</div>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-indigo-900 bg-indigo-50/30">
-                          {formatBanglaNumber(item.cartonQty)}
+                        <td className="py-2.5 px-3 text-center font-bold text-indigo-900 bg-indigo-50/20">
+                          {formatBanglaNumber(item.cartonQty)} ক. {formatBanglaNumber(item.pieceQty)} পিস
+                          <div className="text-[10px] text-slate-500 font-normal">({formatBanglaNumber(item.baseQty)} পিস)</div>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-indigo-900 bg-indigo-50/30">
-                          {formatBanglaNumber(item.pieceQty)}
+                        <td className="py-2.5 px-3 text-center font-bold text-rose-900 bg-rose-50/30">
+                          {item.returnedBaseQty && item.returnedBaseQty > 0 ? (
+                            <>
+                              {formatBanglaNumber(item.returnedCartonQty || 0)} ক. {formatBanglaNumber(item.returnedPieceQty || 0)} পিস
+                              <div className="text-[10px] text-rose-600 font-semibold">({formatBanglaNumber(item.returnedBaseQty)} পিস ফেরত)</div>
+                            </>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-center font-black text-emerald-800 bg-emerald-50/30">
-                          {formatBanglaNumber(item.baseQty)} পিস
+                          {formatBanglaNumber(item.netBaseQty !== undefined ? item.netBaseQty : item.baseQty)} পিস
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           {formatBanglaCurrency(item.sellingPrice)}
