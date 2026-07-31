@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, postPurchaseInvoice, postCompanyPayment } from '../db/db';
-import { Company, PurchaseItem, PurchaseInvoice, DemandSheet, Product } from '../types';
+import { db, postPurchaseInvoice, postCompanyPayment, postCompanyIncentive } from '../db/db';
+import { Company, PurchaseItem, PurchaseInvoice, DemandSheet, Product, CompanyIncentive, IncentiveType } from '../types';
 import { 
   Plus, 
   Search, 
@@ -100,6 +100,8 @@ export default function Purchases() {
   const [companyNameInput, setCompanyNameInput] = useState('');
   const [companyPhoneInput, setCompanyPhoneInput] = useState('');
   const [companyAddressInput, setCompanyAddressInput] = useState('');
+  const [companyOpeningBalanceInput, setCompanyOpeningBalanceInput] = useState<number>(0);
+  const [companyOpeningBalanceTypeInput, setCompanyOpeningBalanceTypeInput] = useState<'Payable' | 'Receivable'>('Payable');
   const [companyError, setCompanyError] = useState('');
 
   // Payment Modal
@@ -108,6 +110,13 @@ export default function Purchases() {
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [payRemarks, setPayRemarks] = useState('');
   const [payError, setPayError] = useState('');
+
+  // Incentive & Claim Adjustment Modal
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState<IncentiveType>('Target Incentive');
+  const [adjustmentAmount, setAdjustmentAmount] = useState<number>(0);
+  const [adjustmentRemarks, setAdjustmentRemarks] = useState('');
+  const [adjustmentError, setAdjustmentError] = useState('');
 
   // Live Queries
   const companies = useLiveQuery(() => db.companies.toArray()) || [];
@@ -388,6 +397,8 @@ export default function Purchases() {
     setCompanyNameInput('');
     setCompanyPhoneInput('');
     setCompanyAddressInput('');
+    setCompanyOpeningBalanceInput(0);
+    setCompanyOpeningBalanceTypeInput('Payable');
     setCompanyError('');
     setIsCompanyModalOpen(true);
   };
@@ -399,6 +410,8 @@ export default function Purchases() {
     setCompanyNameInput(c.name);
     setCompanyPhoneInput(c.phone);
     setCompanyAddressInput(c.address);
+    setCompanyOpeningBalanceInput(c.openingBalance || 0);
+    setCompanyOpeningBalanceTypeInput(c.openingBalanceType || 'Payable');
     setCompanyError('');
     setIsCompanyModalOpen(true);
   };
@@ -417,7 +430,9 @@ export default function Purchases() {
         await db.companies.update(editingCompany.id, {
           name: companyNameInput.trim(),
           phone: companyPhoneInput.trim(),
-          address: companyAddressInput.trim()
+          address: companyAddressInput.trim(),
+          openingBalance: companyOpeningBalanceInput,
+          openingBalanceType: companyOpeningBalanceTypeInput
         });
       } else {
         const exists = await db.companies.get(companyIdInput.trim());
@@ -426,12 +441,18 @@ export default function Purchases() {
           return;
         }
 
+        const initialOutstanding = companyOpeningBalanceTypeInput === 'Payable' 
+          ? companyOpeningBalanceInput 
+          : -companyOpeningBalanceInput;
+
         await db.companies.add({
           id: companyIdInput.trim(),
           name: companyNameInput.trim(),
           phone: companyPhoneInput.trim(),
           address: companyAddressInput.trim(),
-          outstandingBalance: 0
+          openingBalance: companyOpeningBalanceInput,
+          openingBalanceType: companyOpeningBalanceTypeInput,
+          outstandingBalance: initialOutstanding
         });
       }
       setIsCompanyModalOpen(false);
@@ -472,6 +493,48 @@ export default function Purchases() {
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
       setPayError(err.message || 'পেমেন্ট এনট্রিতে ত্রুটি হয়েছে।');
+    }
+  };
+
+  const handleOpenAdjustmentModal = () => {
+    setAdjustmentType('Target Incentive');
+    setAdjustmentAmount(0);
+    setAdjustmentRemarks('');
+    setAdjustmentError('');
+    setIsAdjustmentModalOpen(true);
+  };
+
+  const handleSaveAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdjustmentError('');
+
+    if (!selectedCompanyId) return;
+    if (adjustmentAmount <= 0) {
+      setAdjustmentError('টাকার পরিমাণ ধনাত্মক সংখ্যা হতে হবে।');
+      return;
+    }
+
+    try {
+      const company = companies.find(c => c.id === selectedCompanyId);
+      if (!company) throw new Error('Company not found');
+
+      const incentiveData: CompanyIncentive = {
+        id: crypto.randomUUID(),
+        companyId: company.id,
+        companyName: company.name,
+        date: new Date().toISOString().split('T')[0],
+        type: adjustmentType,
+        amount: adjustmentAmount,
+        remarks: adjustmentRemarks
+      };
+
+      await postCompanyIncentive(incentiveData);
+      
+      setIsAdjustmentModalOpen(false);
+      setNotification({ type: 'success', message: 'লেজার ব্যালেন্স সমন্বিত হয়েছে।' });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err: any) {
+      setAdjustmentError(err.message || 'অ্যাডজাস্টমেন্ট সংরক্ষণে ত্রুটি হয়েছে।');
     }
   };
 
@@ -996,9 +1059,11 @@ export default function Purchases() {
                     <div className="mt-3 flex items-end justify-between border-t border-slate-100 pt-2.5">
                       <span className="text-[11px] text-slate-500 block truncate max-w-[150px]">{c.address || 'ঠিকানা দেওয়া হয়নি'}</span>
                       <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block font-bold">মোট দেনা (We Owe)</span>
-                        <span className={`text-sm font-black font-mono ${c.outstandingBalance > 0 ? 'text-indigo-600' : 'text-slate-900'}`}>
-                          {formatBanglaCurrency(c.outstandingBalance)}
+                        <span className="text-[10px] text-slate-400 block font-bold">
+                          {c.outstandingBalance > 0 ? 'মোট দেনা (We Owe)' : c.outstandingBalance < 0 ? 'মোট পাওনা (Receivable)' : 'ব্যালেন্স (Balance)'}
+                        </span>
+                        <span className={`text-sm font-black font-mono ${c.outstandingBalance > 0 ? 'text-indigo-600' : c.outstandingBalance < 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                          {formatBanglaCurrency(Math.abs(c.outstandingBalance))}
                         </span>
                       </div>
                     </div>
@@ -1021,23 +1086,41 @@ export default function Purchases() {
                     <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">আইডি: {selectedCompany.id} • ফোন: {selectedCompany.phone || 'N/A'}</span>
                   </div>
 
-                  {/* Cash Payment Button */}
-                  <button 
-                    onClick={handleOpenPayModal}
-                    className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-indigo-700 transition shadow-sm"
-                    id="btn-post-company-payment"
-                  >
-                    <ArrowUpCircle className="h-4.5 w-4.5" /> নগদ দেনা পরিশোধ (Post Payment)
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Incentive/Adjustment Button */}
+                    <button 
+                      onClick={handleOpenAdjustmentModal}
+                      className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
+                    >
+                      ইনসেন্টিভ ও ক্লেইম এডজাস্টমেন্ট
+                    </button>
+                    {/* Cash Payment Button */}
+                    <button 
+                      onClick={handleOpenPayModal}
+                      className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-indigo-700 transition shadow-sm"
+                      id="btn-post-company-payment"
+                    >
+                      <ArrowUpCircle className="h-4.5 w-4.5" /> নগদ দেনা পরিশোধ
+                    </button>
+                  </div>
                 </div>
 
                 {/* Liability Summary Box */}
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4 border border-slate-200">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">বর্তমান দেনা / বকেয়া (Accounts Payable)</span>
-                    <span className="text-2xl font-black text-slate-900 block font-mono mt-0.5">
-                      {formatBanglaCurrency(selectedCompany.outstandingBalance)}
-                    </span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">বর্তমান জের অবস্থা (Current Balance Status)</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-2xl font-black text-slate-900 font-mono">
+                        {formatBanglaCurrency(Math.abs(selectedCompany.outstandingBalance))}
+                      </span>
+                      {selectedCompany.outstandingBalance > 0 ? (
+                        <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[10px] font-bold">কোম্পানি পাবে (Payable / দেনা)</span>
+                      ) : selectedCompany.outstandingBalance < 0 ? (
+                        <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold">আমি পাব (Receivable / পাওনা)</span>
+                      ) : (
+                        <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">ব্যালেন্স শূন্য</span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right text-xs text-slate-500">
                     <span>ঠিকানা: {selectedCompany.address || 'N/A'}</span>
@@ -1344,6 +1427,37 @@ export default function Purchases() {
                 />
               </div>
 
+              {!editingCompany && (
+                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      প্রারম্ভিক জের (Opening Balance)
+                    </label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="0.00"
+                      value={companyOpeningBalanceInput || ''}
+                      onChange={(e) => setCompanyOpeningBalanceInput(parseFloat(e.target.value) || 0)}
+                      className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      জের এর ধরন (Balance Type)
+                    </label>
+                    <select
+                      value={companyOpeningBalanceTypeInput}
+                      onChange={(e) => setCompanyOpeningBalanceTypeInput(e.target.value as 'Payable' | 'Receivable')}
+                      className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-bold focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="Payable">কোম্পানি পাবে (দেনা)</option>
+                      <option value="Receivable">আমি পাব (পাওনা)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <button 
                   type="button" 
@@ -1454,6 +1568,103 @@ export default function Purchases() {
                   className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 shadow-sm transition"
                 >
                   ক্যাশ পেমেন্ট পোস্ট করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4: INCENTIVE AND CLAIM ADJUSTMENT */}
+      {/* ========================================================= */}
+      {isAdjustmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-xl flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h3 className="font-sans font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <Layers className="h-5 w-5 text-indigo-600" /> ইনসেন্টিভ ও ক্লেইম এডজাস্টমেন্ট
+              </h3>
+              <button onClick={() => setIsAdjustmentModalOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdjustment} className="p-5 space-y-4">
+              {adjustmentError && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-700">
+                  {adjustmentError}
+                </div>
+              )}
+
+              <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>কোম্পানি:</span>
+                  <span className="font-bold text-slate-900">{selectedCompany?.name}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  ক্লেইমের ধরণ (Claim Type) *
+                </label>
+                <select 
+                  value={adjustmentType}
+                  onChange={(e) => setAdjustmentType(e.target.value as IncentiveType)}
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-bold text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  required
+                >
+                  <option value="Target Incentive">টার্গেট ইনসেন্টিভ (Target Incentive)</option>
+                  <option value="Scheme Bonus">স্পেশাল স্কিম (Special Scheme)</option>
+                  <option value="Manual Adjustment">ব্যালেন্স এডজাস্টমেন্ট (Balance Adjustment)</option>
+                  <option value="Special Bonus">অন্যান্য (Other)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  টাকার পরিমাণ (Amount ৳) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">৳</span>
+                  <input 
+                    type="number" 
+                    step="any"
+                    placeholder="0.00" 
+                    value={adjustmentAmount || ''}
+                    onChange={(e) => setAdjustmentAmount(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-7 pr-3 text-sm font-mono font-bold focus:border-indigo-500 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  রেফারেন্স / নোট (Reference / Note)
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="বিস্তারিত লিখুন..." 
+                  value={adjustmentRemarks}
+                  onChange={(e) => setAdjustmentRemarks(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-semibold focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsAdjustmentModalOpen(false)} 
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  বাতিল
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 shadow-sm transition"
+                >
+                  সমন্বয় করুন (Adjust)
                 </button>
               </div>
             </form>

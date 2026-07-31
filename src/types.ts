@@ -67,7 +67,9 @@ export interface Company extends BaseEntity {
   name: string;
   phone: string;
   address: string;
-  outstandingBalance: number;     // Liability of what ERP owes this Company (Derived/Materialized)
+  outstandingBalance: number;     // Liability of what ERP owes this Company (Positive = Payable/দেনা, Negative = Receivable/পাওনা)
+  openingBalance?: number;
+  openingBalanceType?: 'Payable' | 'Receivable';
 }
 
 /**
