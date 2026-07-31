@@ -1,0 +1,6 @@
+# Ensure jar files are treated as binary to prevent corruption during checkout/commit
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.keystore binary

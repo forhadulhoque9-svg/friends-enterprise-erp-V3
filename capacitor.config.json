@@ -1,0 +1,6 @@
+{
+  "appId": "com.erpadmin.app",
+  "appName": "ERP Manager",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

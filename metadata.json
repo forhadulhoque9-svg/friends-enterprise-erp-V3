@@ -1,0 +1,6 @@
+{
+  "name": "Friends Enterprise ERP v3",
+  "description": "A complete offline-first ERP for a distribution business built using React, TypeScript, and IndexedDB.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

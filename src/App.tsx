@@ -1,0 +1,455 @@
+import React, { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db, seedDatabase, getCashBalance } from './db/db';
+import { dataManager } from './services/dataManager';
+import Logo from './components/Logo';
+import Dashboard from './modules/Dashboard';
+import Products from './modules/Products';
+import Customers from './modules/Customers';
+import Sales from './modules/Sales';
+import Purchases from './modules/Purchases';
+import Inventory from './modules/Inventory';
+import CompanyFinancials from './modules/CompanyFinancials';
+import HawlatModule from './modules/Hawlat';
+import BusinessProfileModule from './modules/business-profile/BusinessProfileModule';
+import ReportsModule from './modules/reports/ReportsModule';
+import DsrModule from './modules/dsr/DsrModule';
+import DemandSheetModule from './modules/demand-sheet/DemandSheetModule';
+import RouteSalesModule from './modules/route-sales/RouteSalesModule';
+import BackupRestore from './modules/BackupRestore';
+import DebugScreen from './components/DebugScreen';
+import { 
+  LayoutDashboard, 
+  Package, 
+  Users, 
+  TrendingUp, 
+  ShoppingBag, 
+  Layers, 
+  ShieldAlert, 
+  Coins, 
+  Settings, 
+  Download, 
+  Upload, 
+  Wifi, 
+  RefreshCw, 
+  Trash2, 
+  Save, 
+  Image, 
+  Check, 
+  AlertTriangle,
+  Building2,
+  BarChart3,
+  Truck,
+  FileCheck,
+  UserCheck,
+  HardDrive,
+  RotateCcw
+} from 'lucide-react';
+
+type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'financials' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'route-sales' | 'business-profile' | 'settings';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<ModuleTab>('dashboard');
+  const [dbSeeded, setDbSeeded] = useState(false);
+
+  // Profile / Settings states
+  const [compName, setCompName] = useState('Friends Enterprise');
+  const [compPhone, setCompPhone] = useState('01835912597');
+  const [compAddress, setCompAddress] = useState('Khatunganj, Chittagong, Bangladesh');
+  const [logoFile, setLogoFile] = useState<string>('');
+  const [settingsSuccess, setSettingsSuccess] = useState('');
+
+  // Live query for configuration and general KPIs
+  const config = useLiveQuery(() => db.config.get('main'));
+  const cashBal = useLiveQuery(() => getCashBalance());
+
+  // Seed DB & Sync live stores on mount
+  useEffect(() => {
+    const runSync = async () => {
+      await dataManager.syncAll();
+      setDbSeeded(true);
+    };
+    runSync();
+  }, []);
+
+  // Update form inputs when config loads
+  useEffect(() => {
+    if (config) {
+      setCompName(config.companyName || 'Friends Enterprise');
+      setCompPhone(config.phone || '01835912597');
+      setCompAddress(config.address || 'Khatunganj, Chittagong, Bangladesh');
+      setLogoFile(config.logoBase64 || '');
+    }
+  }, [config]);
+
+  // Handle Logo Upload base64
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        setLogoFile(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSuccess('');
+    try {
+      await db.config.put({
+        id: 'main',
+        companyName: compName,
+        phone: compPhone,
+        address: compAddress,
+        logoBase64: logoFile || undefined
+      });
+      setSettingsSuccess('Corporate branding settings updated successfully!');
+      setTimeout(() => setSettingsSuccess(''), 4000);
+    } catch (err) {
+      alert('Failed to save settings: ' + err);
+    }
+  };
+
+  // BACKUP DATABASE: Export all IndexedDB tables to a single JSON file
+  const handleBackupDatabase = async () => {
+    try {
+      const backupData: Record<string, any> = {};
+      const tableNames = db.tables.map(t => t.name);
+
+      for (const name of tableNames) {
+        backupData[name] = await db.table(name).toArray();
+      }
+
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `friends_enterprise_erp_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Error creating backup: ' + err);
+    }
+  };
+
+  // RESTORE DATABASE: Parse uploaded JSON and bulk-overwrite tables
+  const handleRestoreDatabase = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const parsed = JSON.parse(reader.result as string);
+          if (confirm('Are you absolutely sure you want to restore this backup? Doing so will fully replace all current local data.')) {
+            // Clear all tables first
+            for (const table of db.tables) {
+              await table.clear();
+            }
+            // Populate tables
+            for (const [tableName, data] of Object.entries(parsed)) {
+              if (db.tables.some(t => t.name === tableName)) {
+                await db.table(tableName).bulkAdd(data as any[]);
+              }
+            }
+            alert('Database Restored Successfully! Reloading workspace...');
+            window.location.reload();
+          }
+        } catch (err) {
+          alert('Failed to parse backup file. Please make sure it is a valid JSON backup exported from this ERP.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // RESET DATABASE to initial state
+  const handleFactoryReset = async () => {
+    if (confirm('DANGER: This will delete ALL transactions, products, customer balances, and configurations, resetting the database back to clean factory defaults. Proceed?')) {
+      try {
+        for (const table of db.tables) {
+          await table.clear();
+        }
+        await seedDatabase();
+        alert('ERP Database factory reset complete!');
+        window.location.reload();
+      } catch (err) {
+        alert('Reset failed: ' + err);
+      }
+    }
+  };
+
+  // HARD RESET: Clear localStorage, sessionStorage, flush Dexie tables, sync empty state, and reload
+  const handleHardResetState = async () => {
+    if (confirm('Reset App State & Clear Storage? This will clear local/session storage, flush all cached state, and reload the application.')) {
+      try {
+        await dataManager.resetAndSync();
+        window.location.reload();
+      } catch (err) {
+        console.error('Hard reset failed:', err);
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload();
+      }
+    }
+  };
+
+  if (!dbSeeded) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent"></div>
+        <span className="text-xs font-bold text-slate-500 mt-4 font-mono tracking-widest uppercase">Initializing Offline IndexDB Engine...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50/70 text-slate-900" id="friends-erp-root">
+      
+      {/* 1. LEFT SIDEBAR NAVIGATION */}
+      <aside className="hidden md:flex md:w-64 md:flex-col shrink-0 border-r border-slate-200/80 bg-white">
+        {/* Brand Logo Header */}
+        <div className="flex h-16 items-center px-6 border-b border-slate-100">
+          <Logo />
+        </div>
+
+        {/* Navigation list */}
+        <nav className="flex-1 space-y-1.5 px-4 py-6 overflow-y-auto">
+          <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Executive Desk</span>
+          
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'dashboard' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-dashboard"
+          >
+            <LayoutDashboard className="h-4 w-4" /> Executive Dashboard
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('inventory')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'inventory' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-inventory"
+          >
+            <Package className="h-4 w-4" /> Stock Controller
+          </button>
+
+          <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Trading Sales</span>
+
+          <button 
+            onClick={() => setActiveTab('sales')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'sales' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-sales"
+          >
+            <TrendingUp className="h-4 w-4" /> Sales Invoicing
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('customers')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'customers' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-customers"
+          >
+            <Users className="h-4 w-4" /> Retail Customers
+          </button>
+
+          <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Field Sales & Logistics</span>
+
+          <button 
+            onClick={() => setActiveTab('dsr')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'dsr' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-dsr"
+          >
+            <UserCheck className="h-4 w-4" /> ডিএসআর ও পে-রোল (DSR & Payroll)
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('demand-sheet')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'demand-sheet' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-demand-sheet"
+          >
+            <FileCheck className="h-4 w-4" /> Demand & Picking Slips
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('route-sales')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'route-sales' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-route-sales"
+          >
+            <Truck className="h-4 w-4" /> Route Sales & Delivery
+          </button>
+
+          <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Procurement & Claims</span>
+
+          <button 
+            onClick={() => setActiveTab('purchases')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'purchases' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-purchases"
+          >
+            <ShoppingBag className="h-4 w-4" /> Supplier Purchases
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('financials')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'financials' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-financials"
+          >
+            <ShieldAlert className="h-4 w-4" /> Trade Financials
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('reports')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'reports' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-reports"
+          >
+            <BarChart3 className="h-4 w-4" /> Financial Reports
+          </button>
+
+          <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">Bespoke Ledgers</span>
+
+          <button 
+            onClick={() => setActiveTab('hawlat')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'hawlat' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-hawlat"
+          >
+            <Coins className="h-4 w-4" /> Hawlat Ledger
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('products')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'products' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-products"
+          >
+            <Layers className="h-4 w-4" /> SKU Catalog
+          </button>
+
+          <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-4 mb-2">System Admin</span>
+
+          <button 
+            onClick={() => setActiveTab('business-profile')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'business-profile' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-business-profile"
+          >
+            <Building2 className="h-4 w-4" /> Business Profile
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition ${activeTab === 'settings' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+            id="nav-settings"
+          >
+            <HardDrive className="h-4 w-4 text-emerald-600" /> ব্যাকআপ ও রিস্টোর
+          </button>
+        </nav>
+
+        {/* Footer info */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span className="text-[10px] font-mono text-slate-500 font-bold">Local Host: 127.0.0.1</span>
+          </div>
+          <span className="text-[9px] text-slate-400 block mt-0.5 font-medium">Offline Database secured</span>
+        </div>
+      </aside>
+
+      {/* 2. MAIN CORE STAGE */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        {/* Top Header Bar */}
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-6">
+          <div className="flex items-center gap-4">
+            {/* Small screen menu indicators / logo */}
+            <div className="md:hidden flex items-center gap-2">
+              <Logo iconOnly className="h-8" />
+              <select 
+                value={activeTab} 
+                onChange={(e) => setActiveTab(e.target.value as ModuleTab)}
+                className="rounded border border-slate-200 bg-white p-1 text-xs font-bold text-slate-900 focus:outline-none"
+              >
+                <option value="dashboard">Dashboard</option>
+                <option value="inventory">Inventory</option>
+                <option value="sales">Sales Invoice</option>
+                <option value="customers">Customers</option>
+                <option value="dsr">DSR Field Visits</option>
+                <option value="demand-sheet">Demand Slips</option>
+                <option value="route-sales">Route Sales</option>
+                <option value="purchases">Purchases</option>
+                <option value="financials">Financials</option>
+                <option value="reports">Financial Reports</option>
+                <option value="hawlat">Hawlat</option>
+                <option value="products">Products</option>
+                <option value="business-profile">Business Profile</option>
+                <option value="settings">ব্যাকআপ ও রিস্টোর (Backup & Restore)</option>
+              </select>
+            </div>
+
+            <div className="hidden md:flex items-center gap-2 text-slate-400 text-xs font-medium">
+              <span>Friends Enterprise ERP</span>
+              <span>/</span>
+              <span className="text-slate-900 font-bold capitalize">{activeTab} Console</span>
+            </div>
+          </div>
+
+          {/* Connection diagnostics, database actions */}
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-100 px-3 py-1">
+              <Coins className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="text-[10px] font-mono font-bold text-slate-700">Cash: ৳{(cashBal || 0).toLocaleString()}</span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-full px-2.5 py-0.5 text-[10px] font-bold">
+              <Wifi className="h-3 w-3" /> Offline Native
+            </div>
+
+            {/* Reset App State & Clear Storage Button */}
+            <button 
+              onClick={handleHardResetState}
+              className="flex items-center gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition shadow-xs"
+              title="Reset App State & Clear Storage"
+              id="reset-app-state-btn"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-rose-600" />
+              <span className="hidden sm:inline">Reset App State & Clear Storage</span>
+            </button>
+
+            {/* Quick backup button in header */}
+            <button 
+              onClick={handleBackupDatabase}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-900 transition"
+              title="Fast Backup Database"
+            >
+              <Download className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Active Stage Renderer */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <DebugScreen />
+          {activeTab === 'dashboard' && <Dashboard onNavigate={(mod) => setActiveTab(mod as any)} />}
+          {activeTab === 'products' && <Products />}
+          {activeTab === 'customers' && <Customers />}
+          {activeTab === 'sales' && <Sales />}
+          {activeTab === 'purchases' && <Purchases />}
+          {activeTab === 'inventory' && <Inventory />}
+          {activeTab === 'financials' && <CompanyFinancials />}
+          {activeTab === 'hawlat' && <HawlatModule />}
+          {activeTab === 'reports' && <ReportsModule />}
+          {activeTab === 'dsr' && <DsrModule />}
+          {activeTab === 'demand-sheet' && <DemandSheetModule />}
+          {activeTab === 'route-sales' && <RouteSalesModule />}
+          {activeTab === 'business-profile' && <BusinessProfileModule />}
+          
+          {/* TAB: BACKUP & RESTORE MODULE */}
+          {activeTab === 'settings' && <BackupRestore />}
+
+        </main>
+      </div>
+
+    </div>
+  );
+}
