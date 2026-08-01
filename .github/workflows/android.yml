@@ -40,13 +40,13 @@ jobs:
           gradle-version: 8.7
           cache-disabled: true
 
-      - name: Build Android Debug APK
+      - name: Build Android Release APK
         run: |
           cd android
-          gradle assembleDebug --no-daemon --no-build-cache --stacktrace
+          gradle assembleRelease --no-daemon --no-build-cache --stacktrace
 
-      - name: Upload Debug APK Artifact
+      - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ERP-Manager-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: ERP-Manager-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk

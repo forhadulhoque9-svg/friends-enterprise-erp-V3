@@ -1,14 +1,23 @@
 apply plugin: 'com.android.application'
 
+def versionPropsFile = file('version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+}
+
+def code = (versionProps['versionCode'] ?: "1").toInteger()
+def name = versionProps['versionName'] ?: "1.0.0"
+
 android {
-    namespace = "com.erpadmin.app"
+    namespace = "com.friendsenterprise.erp"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.erpadmin.app"
+        applicationId "com.friendsenterprise.erp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode code
+        versionName name
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,11 +29,40 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword 'friends_enterprise_secret'
+            keyAlias 'release'
+            keyPassword 'friends_enterprise_secret'
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
+    }
+}
+
+// Task to increment version code
+tasks.register('incrementVersionCode') {
+    doLast {
+        if (versionPropsFile.exists()) {
+            def vProps = new Properties()
+            vProps.load(new FileInputStream(versionPropsFile))
+            def currentCode = (vProps['versionCode'] ?: "1").toInteger()
+            vProps['versionCode'] = (currentCode + 1).toString()
+            vProps.store(versionPropsFile.newWriter(), null)
+        }
+    }
+}
+
+// Ensure version code is incremented when building
+tasks.configureEach { task ->
+    if (task.name == 'assembleRelease' || task.name == 'bundleRelease') {
+        task.dependsOn 'incrementVersionCode'
     }
 }
 
