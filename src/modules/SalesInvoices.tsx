@@ -5,6 +5,7 @@ import { SalesInvoice } from '../types';
 import ErrorBoundary from '../components/ErrorBoundary';
 import UniversalPrintModal from '../components/UniversalPrintModal';
 import { formatBanglaCurrency, toBanglaNumerals, formatBanglaDate } from '../lib/utils';
+import companyLogoPng from '../assets/images/company_logo.png';
 import { 
   Search, 
   Calendar, 
@@ -55,7 +56,7 @@ function SalesInvoicesContent() {
   const configuredPhone = profile?.phone || '০১৮৩৫৯১২৫৯৭';
   const configuredOwner = profile?.owner || 'ফরহাদুল হক';
   const configuredBusinessName = profile?.businessName || 'ফ্রেন্ডস এন্টারপ্রাইজ';
-  const logo = profile?.logoBase64;
+  const logo = profile?.logoBase64 || companyLogoPng;
 
   const [showPrintModal, setShowPrintModal] = useState(false);
 

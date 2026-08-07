@@ -344,10 +344,16 @@ export default function App() {
               </select>
             </div>
 
-            <div className="hidden md:flex items-center gap-2 text-slate-400 text-xs font-medium">
-              <span>{compName} ERP</span>
-              <span>/</span>
-              <span className="text-slate-900 font-bold capitalize">{activeTab} Console</span>
+            <div className="hidden md:flex items-center gap-3">
+              <Logo iconOnly className="h-9" size="md" />
+              <div className="h-5 w-px bg-slate-200"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-slate-900">{compName}</span>
+                <span className="text-slate-300 font-light">/</span>
+                <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100/80 px-2.5 py-0.5 rounded-md capitalize shadow-2xs">
+                  {activeTab === 'dashboard' ? 'ড্যাশবোর্ড (Dashboard)' : `${activeTab} Console`}
+                </span>
+              </div>
             </div>
           </div>
 

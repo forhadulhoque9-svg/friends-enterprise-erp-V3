@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { formatBanglaCurrency, toBanglaNumerals } from '../lib/utils';
+import companyLogoPng from '../assets/images/company_logo.png';
 
 export type DocType = 'ledger' | 'damage' | 'invoice' | 'demand' | 'purchase' | 'pnl' | 'stock';
 
@@ -31,7 +32,7 @@ export default function UniversalPrintModal({
 
   const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
   const compAddress = profile?.address || 'তেজগাঁও, ঢাকা';
-  const logo = profile?.logoBase64;
+  const logo = profile?.logoBase64 || companyLogoPng;
 
   const handleDownloadPDF = () => {
     if (!printRef.current) return;

@@ -5,6 +5,7 @@ import { Toast } from '@capacitor/toast';
 import { db } from '../db/db';
 import { DemandSheet, DemandSheetItem, Company, Product } from '../types';
 import { toBanglaNumerals, formatBanglaCurrency, formatBanglaNumber } from '../lib/utils';
+import companyLogoPng from '../assets/images/company_logo.png';
 import { 
   FileCheck, 
   Plus, 
@@ -42,7 +43,7 @@ export default function DemandSlips() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
   const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
-  const logo = profile?.logoBase64;
+  const logo = profile?.logoBase64 || companyLogoPng;
   const [myEnterpriseName, setMyEnterpriseName] = useState<string>('');
 
   React.useEffect(() => {

@@ -1,65 +1,53 @@
+import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { ShieldAlert } from 'lucide-react';
+import companyLogoPng from '../assets/images/company_logo.png';
 
 interface LogoProps {
   className?: string;
   iconOnly?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export default function Logo({ className = '', iconOnly = false }: LogoProps) {
+export default function Logo({ className = '', iconOnly = false, size = 'md' }: LogoProps) {
   const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
   const companyName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
-  const logo = profile?.logoBase64;
+  const logo = profile?.logoBase64 || companyLogoPng;
 
-  if (logo) {
-    return (
-      <div className={`flex items-center gap-3 ${className}`}>
+  // Determine height classes based on size prop and iconOnly
+  let logoHeightClass = 'h-9 w-9';
+  if (iconOnly) {
+    if (size === 'sm') logoHeightClass = 'h-7 w-7';
+    if (size === 'lg') logoHeightClass = 'h-11 w-11';
+  } else {
+    if (size === 'sm') logoHeightClass = 'h-8';
+    if (size === 'lg') logoHeightClass = 'h-12';
+  }
+
+  return (
+    <div className={`flex items-center gap-3 select-none ${className}`}>
+      <div className="relative shrink-0 flex items-center justify-center">
         <img 
           src={logo} 
           alt={companyName} 
-          className={`object-contain rounded ${iconOnly ? 'h-8 w-8' : 'h-10'}`}
+          className={`object-contain rounded-lg transition-transform duration-200 hover:scale-105 ${
+            iconOnly 
+              ? `${logoHeightClass} p-0.5 bg-white shadow-xs border border-slate-200/80` 
+              : `${logoHeightClass} w-auto max-h-12`
+          }`}
           referrerPolicy="no-referrer"
+          onError={(e) => {
+            // Fallback to bundled PNG logo if custom logo string fails
+            (e.currentTarget as HTMLImageElement).src = companyLogoPng;
+          }}
         />
-        {!iconOnly && (
-          <div className="flex flex-col">
-            <span className="font-sans font-bold text-gray-900 tracking-tight leading-none text-base">
-              {companyName}
-            </span>
-            <span className="font-mono text-[10px] text-gray-500 mt-1 leading-none tracking-wider uppercase">
-              ERP v3
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Fallback high-contrast vector design
-  return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-          className="h-5 w-5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"
-          />
-        </svg>
       </div>
       {!iconOnly && (
-        <div className="flex flex-col">
-          <span className="font-sans font-extrabold text-gray-950 tracking-tight leading-none text-base">
+        <div className="flex flex-col min-w-0">
+          <span className="font-sans font-black text-slate-900 tracking-tight leading-none text-sm md:text-base truncate">
             {companyName}
           </span>
-          <span className="font-mono text-[9px] text-emerald-600 font-bold mt-1 tracking-widest uppercase">
+          <span className="font-mono text-[9px] text-emerald-600 font-extrabold mt-1 tracking-widest uppercase">
             ERP v3
           </span>
         </div>

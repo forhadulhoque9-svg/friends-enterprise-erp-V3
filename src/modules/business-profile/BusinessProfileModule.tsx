@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { BusinessProfile } from '../../types';
+import companyLogoPng from '../../assets/images/company_logo.png';
 import { 
   Building2, 
   Save, 
@@ -276,27 +277,36 @@ export default function BusinessProfileModule() {
 
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50 group hover:border-indigo-300 transition-colors">
               {logoBase64 ? (
-                <div className="relative group/img">
+                <div className="relative group/img flex flex-col items-center">
                   <img
                     src={logoBase64}
-                    alt="Business Logo"
-                    className="h-32 w-auto object-contain bg-white p-2 rounded-xl shadow-sm border border-slate-100"
+                    alt="Custom Business Logo"
+                    className="h-28 w-auto object-contain bg-white p-2 rounded-xl shadow-sm border border-slate-100"
                     referrerPolicy="no-referrer"
                   />
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-2">
+                    কাস্টম আপলোডকৃত লোগো
+                  </span>
                   <button
                     type="button"
                     onClick={() => setLogoBase64('')}
                     className="absolute -top-2 -right-2 h-6 w-6 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-rose-600 transition"
+                    title="রিমুভ করুন"
                   >
                     ×
                   </button>
                 </div>
               ) : (
-                <div className="text-center space-y-2">
-                  <div className="bg-white h-16 w-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm text-slate-300">
-                    <ImageIcon className="h-8 w-8" />
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">কোনো লোগো নেই</p>
+                <div className="text-center space-y-2 flex flex-col items-center">
+                  <img
+                    src={companyLogoPng}
+                    alt="Default Company Logo"
+                    className="h-28 w-auto object-contain bg-white p-2 rounded-xl shadow-sm border border-slate-100"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full block">
+                    ডিফল্ট সিস্টেম লোগো (Default Logo)
+                  </span>
                 </div>
               )}
 

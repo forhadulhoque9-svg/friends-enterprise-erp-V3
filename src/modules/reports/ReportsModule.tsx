@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getCashBalance } from '../../db/db';
 import UniversalPrintModal from '../../components/UniversalPrintModal';
 import { formatBanglaCurrency, toBanglaNumerals } from '../../lib/utils';
+import companyLogoPng from '../../assets/images/company_logo.png';
 import { 
   FileText, BarChart3, Scale, ArrowUpRight, ArrowDownRight, 
   Download, Printer, TrendingUp, TrendingDown, DollarSign, 
@@ -35,7 +36,7 @@ export default function ReportsModule() {
   const profile = useLiveQuery(() => db.businessProfiles.get('bp_default'));
   const compName = profile?.businessName || 'মেসার্স ফাহিম এন্টারপ্রাইজ';
   const compAddress = profile?.address || 'তেজগাঁও, ঢাকা';
-  const logo = profile?.logoBase64;
+  const logo = profile?.logoBase64 || companyLogoPng;
 
 
   // Filter helper

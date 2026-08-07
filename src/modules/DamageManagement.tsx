@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, approveDamageReturn, settleDamagePayment } from '../db/db';
 import { CompanyDamage, Company, Product } from '../types';
+import companyLogoPng from '../assets/images/company_logo.png';
 import { 
   ShieldAlert, 
   PlusCircle, 
@@ -87,7 +88,7 @@ export default function DamageManagement() {
   const ownerName = profile?.owner || 'ফরহাদুল হক';
   const phoneNo = profile?.phone || '০১৮৩৫৯১২৫৯৭';
   const addressStr = profile?.address || 'খাতুনগঞ্জ, চট্টগ্রাম, বাংলাদেশ';
-  const logo = profile?.logoBase64;
+  const logo = profile?.logoBase64 || companyLogoPng;
 
   // Active Tab View State
   const [activeTab, setActiveTab] = useState<'list' | 'opening' | 'new_entry' | 'triplicate_slip'>('list');
