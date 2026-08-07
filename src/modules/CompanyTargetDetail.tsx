@@ -477,7 +477,7 @@ export default function CompanyTargetDetail() {
         isOpen={showPrintModal}
         onClose={() => setShowPrintModal(false)}
         title="কোম্পানি লেজার রিপোর্ট"
-        type="company-ledger"
+        type="ledger"
         data={printData}
       />
     </div>
