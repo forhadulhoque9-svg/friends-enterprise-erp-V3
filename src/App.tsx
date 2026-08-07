@@ -17,6 +17,8 @@ import DemandSheetModule from './modules/demand-sheet/DemandSheetModule';
 import BackupRestore from './modules/BackupRestore';
 import DamageManagement from './modules/DamageManagement';
 import DailyExpenses from './modules/expenses/DailyExpenses';
+import CompanyFinancials from './modules/CompanyFinancials';
+import CompanyTargetDetail from './modules/CompanyTargetDetail';
 import { 
   LayoutDashboard, 
   Package, 
@@ -47,7 +49,7 @@ import {
   PieChart
 } from 'lucide-react';
 
-type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'business-profile' | 'settings' | 'expenses';
+type ModuleTab = 'dashboard' | 'products' | 'customers' | 'sales' | 'purchases' | 'inventory' | 'damage' | 'hawlat' | 'reports' | 'dsr' | 'demand-sheet' | 'business-profile' | 'settings' | 'expenses' | 'financials' | 'target';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ModuleTab>('dashboard');
@@ -385,6 +387,8 @@ export default function App() {
         {/* Active Stage Renderer */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 print:overflow-visible print:h-auto print:p-0 print:block">
           {activeTab === 'dashboard' && <Dashboard onNavigate={(mod) => setActiveTab(mod as any)} />}
+          {activeTab === 'financials' && <CompanyFinancials />}
+          {activeTab === 'target' && <CompanyTargetDetail />}
           {activeTab === 'products' && <Products />}
           {activeTab === 'customers' && <Customers />}
           {activeTab === 'sales' && <Sales />}

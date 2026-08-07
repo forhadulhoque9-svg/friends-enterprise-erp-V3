@@ -596,6 +596,9 @@ export interface DemandSheet extends BaseEntity {
   status?: string;                 // e.g. 'সম্পন্ন / স্টক ইন (Completed)' | 'অপেক্ষমান (Pending)'
   netOutstanding?: number;
   orderTotal?: number;
+  onlineEntryAmount?: number;
+  paymentMethod?: string;
+  bankName?: string;
   // Compatibility fields
   companyOutstanding: number;
   currentOrderAmount: number;

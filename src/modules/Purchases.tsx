@@ -123,12 +123,17 @@ export default function Purchases() {
     return companies.find(c => c.id === (selectedCompanyId || purchaseCompanyId));
   }, [companies, selectedCompanyId, purchaseCompanyId]);
 
-  const selectedCompanyLedger = useLiveQuery(() => 
-    selectedCompanyId 
-      ? db.companyLedgers.where('companyId').equals(selectedCompanyId).sortBy('date')
-      : Promise.resolve([]),
-    [selectedCompanyId]
-  ) || [];
+  const selectedCompanyLedger = useLiveQuery(async () => {
+    if (!selectedCompanyId) return [];
+    try {
+      // With v4 schema, 'date' is indexed, but we use a robust sort fallback to prevent white screen
+      const data = await db.companyLedgers.where('companyId').equals(selectedCompanyId).toArray();
+      return data.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    } catch (err) {
+      console.error('Ledger fetch error:', err);
+      return [];
+    }
+  }, [selectedCompanyId]) || [];
 
   // Filtered companies list
   const filteredCompanies = useMemo(() => {
@@ -1174,37 +1179,39 @@ export default function Purchases() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                      {selectedCompanyLedger.length === 0 ? (
+                      {(!Array.isArray(selectedCompanyLedger) || selectedCompanyLedger.length === 0) ? (
                         <tr>
                           <td colSpan={6} className="py-12 text-center text-slate-400">
                             এই কোম্পানির সাথে পূর্বে কোনো লেজার লেনদেন সম্পন্ন হয়নি।
                           </td>
                         </tr>
                       ) : (
-                        selectedCompanyLedger.map(entry => (
-                          <tr key={entry.id} className="hover:bg-slate-50/50 transition">
-                            <td className="py-3 px-3 font-mono">{entry.date}</td>
+                        selectedCompanyLedger.map((entry, index) => {
+                          if (!entry) return null;
+                          return (
+                          <tr key={entry?.id || `ledger-${index}`} className="hover:bg-slate-50/50 transition">
+                            <td className="py-3 px-3 font-mono">{entry?.date || '—'}</td>
                             <td className="py-3 px-3">
                               <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                entry.type === 'Purchase' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                                entry.type === 'Payment' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                entry?.type === 'Purchase' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                                entry?.type === 'Payment' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                                 'bg-slate-100 text-slate-700'
                               }`}>
-                                {entry.type === 'Purchase' ? 'পারচেজ' : entry.type === 'Payment' ? 'পরিশোধ' : entry.type}
+                                {entry?.type === 'Purchase' ? 'পারচেজ' : entry?.type === 'Payment' ? 'পরিশোধ' : (entry?.type || 'অজানা')}
                               </span>
                             </td>
-                            <td className="py-3 px-3 text-slate-500 text-[11px]">{entry.remarks}</td>
+                            <td className="py-3 px-3 text-slate-500 text-[11px]">{entry?.remarks || '—'}</td>
                             <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700">
-                              {entry.debit > 0 ? formatBanglaCurrency(entry.debit) : '—'}
+                              {(entry?.debit || 0) > 0 ? formatBanglaCurrency(entry.debit!) : '—'}
                             </td>
                             <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                              {entry.credit > 0 ? formatBanglaCurrency(entry.credit) : '—'}
+                              {(entry?.credit || 0) > 0 ? formatBanglaCurrency(entry.credit!) : '—'}
                             </td>
                             <td className="py-3 px-3 text-right font-mono font-black text-slate-900 pr-4">
-                              {formatBanglaCurrency(entry.balance)}
+                              {formatBanglaCurrency(entry?.balance || 0)}
                             </td>
                           </tr>
-                        ))
+                        )})
                       )}
                     </tbody>
                   </table>

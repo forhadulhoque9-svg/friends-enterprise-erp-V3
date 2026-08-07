@@ -102,12 +102,16 @@ export default function Customers() {
     [selectedCustomerId]
   );
 
-  const selectedCustomerLedger = useLiveQuery(() => 
-    selectedCustomerId 
-      ? db.customerLedgers.where('customerId').equals(selectedCustomerId).sortBy('date') 
-      : Promise.resolve([]),
-    [selectedCustomerId]
-  );
+  const selectedCustomerLedger = useLiveQuery(async () => {
+    if (!selectedCustomerId) return [];
+    try {
+      const data = await db.customerLedgers.where('customerId').equals(selectedCustomerId).toArray();
+      return data.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    } catch (err) {
+      console.error('Customer ledger fetch error:', err);
+      return [];
+    }
+  }, [selectedCustomerId]) || [];
 
   const allLedgers = useLiveQuery(() => db.customerLedgers.toArray());
 
@@ -569,21 +573,22 @@ export default function Customers() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
-                      {(!selectedCustomerLedger || selectedCustomerLedger.length === 0) ? (
+                      {(!Array.isArray(selectedCustomerLedger) || selectedCustomerLedger.length === 0) ? (
                         <tr>
                           <td colSpan={5} className="py-8 text-center text-slate-400 font-semibold">
                             এই দোকানের কোনো লেনদেন রেকর্ড পাওয়া যায়নি।
                           </td>
                         </tr>
                       ) : (
-                        selectedCustomerLedger.map(entry => {
-                          const isPayment = entry.type === 'Payment';
+                        selectedCustomerLedger.map((entry, index) => {
+                          if (!entry) return null;
+                          const isPayment = entry?.type === 'Payment';
                           return (
-                            <tr key={entry.id} className="hover:bg-slate-50/70 transition">
+                            <tr key={entry?.id || `cust-ledger-${index}`} className="hover:bg-slate-50/70 transition">
                               
                               {/* তারিখ */}
                               <td className="py-2.5 px-3 font-bold text-slate-900">
-                                {formatBanglaDate(entry.date)}
+                                {entry?.date ? formatBanglaDate(entry.date) : '—'}
                               </td>
 
                               {/* বিবরণ / ধরন */}
@@ -591,26 +596,26 @@ export default function Customers() {
                                 <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
                                   isPayment ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'
                                 }`}>
-                                  {isPayment ? 'নগদ আদায়' : entry.type === 'Invoice' ? 'বিক্রি (বাকি)' : entry.type}
+                                  {isPayment ? 'নগদ আদায়' : entry?.type === 'Invoice' ? 'বিক্রি (বাকি)' : (entry?.type || 'অজানা')}
                                 </span>
-                                {entry.remarks && (
+                                {entry?.remarks && (
                                   <span className="text-[10px] text-slate-400 block mt-0.5">{entry.remarks}</span>
                                 )}
                               </td>
 
                               {/* আদায়ের পরিমাণ */}
                               <td className="py-2.5 px-3 text-right font-black text-emerald-700">
-                                {entry.credit > 0 ? formatBanglaCurrency(entry.credit) : '—'}
+                                {(entry?.credit || 0) > 0 ? formatBanglaCurrency(entry.credit!) : '—'}
                               </td>
 
                               {/* অবশিষ্ট বাকি */}
                               <td className="py-2.5 px-3 text-right font-black text-slate-900">
-                                {formatBanglaCurrency(entry.balance)}
+                                {formatBanglaCurrency(entry?.balance || 0)}
                               </td>
 
                               {/* রশিদ দেখুন */}
                               <td className="py-2.5 px-3 text-center">
-                                {isPayment && entry.credit > 0 ? (
+                                {isPayment && (entry?.credit || 0) > 0 ? (
                                   <button
                                     type="button"
                                     onClick={() => {

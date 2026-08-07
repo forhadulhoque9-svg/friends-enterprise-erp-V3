@@ -1254,47 +1254,48 @@ export default function HawlatModule() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
-                    {selectedHawlatLedger?.length === 0 ? (
+                    {(!Array.isArray(selectedHawlatLedger) || selectedHawlatLedger.length === 0) ? (
                       <tr>
                         <td colSpan={8} className="py-8 text-center text-slate-500">
                           এই হাওলাদারের এখনো কোনো লেনদেন এন্ট্রি রেকর্ড হয়নি।
                         </td>
                       </tr>
                     ) : (
-                      selectedHawlatLedger?.map((entry) => {
-                        const isCashIn = entry.cashAmount > 0;
-                        const isCashOut = entry.cashAmount < 0;
+                      selectedHawlatLedger?.map((entry, index) => {
+                        if (!entry) return null;
+                        const isCashIn = (entry?.cashAmount || 0) > 0;
+                        const isCashOut = (entry?.cashAmount || 0) < 0;
 
                         let typeBadgeClass = 'bg-slate-100 text-slate-800';
-                        let typeLabelBangla: string = entry.type;
+                        let typeLabelBangla: string = entry?.type || 'Unknown';
 
-                        if (entry.type === 'Cash_Lend') {
+                        if (entry?.type === 'Cash_Lend') {
                           typeBadgeClass = 'bg-rose-100 text-rose-800';
                           typeLabelBangla = 'হাওলাত প্রদান (Cash Out)';
-                        } else if (entry.type === 'Cash_Receive') {
+                        } else if (entry?.type === 'Cash_Receive') {
                           typeBadgeClass = 'bg-emerald-100 text-emerald-800';
                           typeLabelBangla = 'হাওলাত গ্রহণ (Cash In)';
-                        } else if (entry.type === 'Product_Lend') {
+                        } else if (entry?.type === 'Product_Lend') {
                           typeBadgeClass = 'bg-amber-100 text-amber-800';
                           typeLabelBangla = 'পণ্য দেওয়া হলো (Stock Out)';
-                        } else if (entry.type === 'Product_Receive') {
+                        } else if (entry?.type === 'Product_Receive') {
                           typeBadgeClass = 'bg-blue-100 text-blue-800';
                           typeLabelBangla = 'পণ্য আনা হলো (Stock In)';
-                        } else if (entry.type === 'Cash_Custody_Deposit') {
+                        } else if (entry?.type === 'Cash_Custody_Deposit') {
                           typeBadgeClass = 'bg-sky-100 text-sky-800';
                           typeLabelBangla = 'দোকানে গচ্ছিত রাখা';
-                        } else if (entry.type === 'Bank_Deposit_Settle') {
+                        } else if (entry?.type === 'Bank_Deposit_Settle') {
                           typeBadgeClass = 'bg-indigo-100 text-indigo-800';
                           typeLabelBangla = 'ব্যাংকে জমা ও সমন্বয়';
-                        } else if (entry.type === 'Cash_Settle' || entry.type === 'Product_Settle') {
+                        } else if (entry?.type === 'Cash_Settle' || entry?.type === 'Product_Settle') {
                           typeBadgeClass = 'bg-emerald-50 text-emerald-900 border border-emerald-200';
                           typeLabelBangla = 'হিসাব সমন্বয়';
                         }
 
                         return (
-                          <tr key={entry.id} className="hover:bg-slate-50/80 transition-colors">
+                          <tr key={entry?.id || `hawlat-ledger-${index}`} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3 px-4 font-mono font-medium whitespace-nowrap">
-                              {entry.date}
+                              {entry?.date || '—'}
                             </td>
                             <td className="py-3 px-4 whitespace-nowrap">
                               <span className={`px-2.5 py-1 rounded-md font-bold text-[11px] ${typeBadgeClass}`}>
@@ -1302,22 +1303,22 @@ export default function HawlatModule() {
                               </span>
                             </td>
                             <td className="py-3 px-4 max-w-xs">
-                              <p className="font-medium text-slate-800">{entry.remarks || '-'}</p>
-                              <span className="text-[10px] text-slate-400 font-mono">{entry.refId}</span>
+                              <p className="font-medium text-slate-800">{entry?.remarks || '-'}</p>
+                              <span className="text-[10px] text-slate-400 font-mono">{entry?.refId}</span>
                             </td>
                             <td className={`py-3 px-4 text-right font-bold whitespace-nowrap ${
                               isCashIn ? 'text-emerald-600' : isCashOut ? 'text-rose-600' : 'text-slate-500'
                             }`}>
-                              {entry.cashAmount === 0 ? '-' : (
-                                isCashIn ? `+${formatBanglaCurrency(entry.cashAmount)}` : formatBanglaCurrency(entry.cashAmount)
+                              {entry?.cashAmount === 0 ? '-' : (
+                                isCashIn ? `+${formatBanglaCurrency(entry?.cashAmount || 0)}` : formatBanglaCurrency(entry?.cashAmount || 0)
                               )}
                             </td>
                             <td className="py-3 px-4">
-                              {entry.productName ? (
+                              {entry?.productName ? (
                                 <div>
                                   <strong className="block text-slate-800">{entry.productName}</strong>
                                   <span className="text-slate-500 text-[11px]">
-                                    {toBanglaNumerals(entry.cartons || 0)} কার্টন, {toBanglaNumerals(entry.loosePcs || 0)} পিস (মোট {toBanglaNumerals(entry.productQty)} পিস)
+                                    {toBanglaNumerals(entry?.cartons || 0)} কার্টন, {toBanglaNumerals(entry?.loosePcs || 0)} পিস (মোট {toBanglaNumerals(entry?.productQty || 0)} পিস)
                                   </span>
                                 </div>
                               ) : (
@@ -1325,7 +1326,7 @@ export default function HawlatModule() {
                               )}
                             </td>
                             <td className="py-3 px-4 text-slate-600">
-                              {entry.bankName ? (
+                              {entry?.bankName ? (
                                 <div>
                                   <span className="font-semibold block">{entry.bankName}</span>
                                   {entry.bankSlipNo && <span className="text-[10px] text-slate-400 font-mono">স্লিপ: {entry.bankSlipNo}</span>}

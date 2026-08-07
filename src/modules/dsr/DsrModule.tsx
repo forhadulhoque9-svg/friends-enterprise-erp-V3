@@ -266,8 +266,8 @@ export default function DsrModule() {
 
   // Active Date Filtering & Chronological Sorting
   const activeUnifiedLedger = rawUnifiedLedger
-    .filter(item => item.amount > 0 && !!item.date)
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .filter(item => item && item.amount > 0 && !!item.date)
+    .sort((a, b) => (a?.date || '').localeCompare(b?.date || ''));
 
   // Totals & Deductions Breakdown
   const totalMonthShortDeduction = activeUnifiedLedger

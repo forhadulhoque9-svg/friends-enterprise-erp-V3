@@ -25,7 +25,9 @@ import {
   Printer
 } from 'lucide-react';
 
-export default function CompanyFinancials() {
+import { ErrorBoundary } from '../components/ErrorBoundary';
+
+function CompanyFinancialsContent() {
   // Tabs: 'Damages' | 'Incentives' | 'Claims' | 'Schemes'
   const [activeSubTab, setActiveSubTab] = useState<'Damages' | 'Incentives' | 'Claims' | 'Schemes'>('Damages');
   
@@ -842,5 +844,13 @@ export default function CompanyFinancials() {
       />
 
     </div>
+  );
+}
+
+export default function CompanyFinancials() {
+  return (
+    <ErrorBoundary>
+      <CompanyFinancialsContent />
+    </ErrorBoundary>
   );
 }

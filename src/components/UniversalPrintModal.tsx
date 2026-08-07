@@ -242,29 +242,52 @@ export default function UniversalPrintModal({
               <div>
                 <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">কোম্পানি</p>
                 <h3 className="text-lg font-black">{data.companyName}</h3>
+                <p className="text-[10px] text-slate-400">স্মারক নং: {data.demandNo}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">ডিমান্ড তারিখ</p>
                 <h3 className="text-lg font-black font-mono">{data.date}</h3>
               </div>
             </div>
+
+            {/* Online Payment Summary */}
+            {data.onlineEntryAmount > 0 && (
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-wider">অনলাইন পেমেন্ট এন্ট্রি:</p>
+                  <p className="text-xs font-bold text-blue-800">মাধ্যম: {data.paymentMethod || 'ব্যাংক'} {data.bankName ? `(${data.bankName})` : ''}</p>
+                </div>
+                <div className="text-right">
+                  <h4 className="text-lg font-black text-blue-900">{formatBanglaCurrency(data.onlineEntryAmount)}</h4>
+                </div>
+              </div>
+            )}
+
             <table className="w-full text-base border-collapse border border-slate-200">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="p-3 text-left">আইটেম</th>
                   <th className="p-3 text-center">পরিমাণ (পিস)</th>
                   <th className="p-3 text-center">কার্টুন (Carton)</th>
+                  <th className="p-3 text-right">মূল্য (৳)</th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((item: any, idx: number) => (
                   <tr key={idx} className="border-b border-slate-100">
                     <td className="p-3 font-bold">{item.productName}</td>
-                    <td className="p-3 text-center font-mono">{item.qty}</td>
-                    <td className="p-3 text-center font-mono">{item.cartons}</td>
+                    <td className="p-3 text-center font-mono">{toBanglaNumerals(item.qty)}</td>
+                    <td className="p-3 text-center font-mono">{toBanglaNumerals(item.cartons)}</td>
+                    <td className="p-3 text-right font-mono font-black">{formatBanglaCurrency(item.total)}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 border-t-2 border-slate-900 font-black">
+                  <td colSpan={3} className="p-3 text-right">মোট ডিমান্ড ভ্যালু:</td>
+                  <td className="p-3 text-right text-lg">{formatBanglaCurrency(data.orderTotal || data.currentOrderAmount)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         );

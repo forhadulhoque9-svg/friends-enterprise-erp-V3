@@ -129,12 +129,16 @@ export class FriendsEnterpriseDB extends Dexie {
     this.version(2).stores(MASTER_SCHEMAS[2]);
 
     // Apply Schema Version 3 configuration with custom migration triggers
-    this.version(CURRENT_DB_VERSION)
+    this.version(3)
       .stores(MASTER_SCHEMAS[3])
       .upgrade(async (tx) => {
         // Run database migration triggers
-        await executeDatabaseMigrations(this, tx.db.verno, CURRENT_DB_VERSION);
+        await executeDatabaseMigrations(this, tx.db.verno, 3);
       });
+
+    // Apply Schema Version 4 (Performance & Sorting Index)
+    this.version(4)
+      .stores(MASTER_SCHEMAS[4]);
 
     // Setup global hooks for audit, versioning and sync tracking
     this.setupDatabaseHooks();

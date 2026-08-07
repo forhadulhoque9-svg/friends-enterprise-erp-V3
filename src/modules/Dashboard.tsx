@@ -719,7 +719,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               চলতি দিন: {toBanglaNumerals(new Date().getDate())} / {toBanglaNumerals(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate())} (অবশিষ্ট: {toBanglaNumerals(Math.max(0, new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate()))} দিন)
             </span>
             <button 
-              onClick={() => onNavigate('financials')} 
+              onClick={() => onNavigate('target')} 
               className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
             >
               কোম্পানি লেজার →

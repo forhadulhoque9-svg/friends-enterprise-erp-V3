@@ -4,7 +4,7 @@
  */
 
 export const DB_NAME = 'FriendsEnterpriseDB_v3';
-export const CURRENT_DB_VERSION = 3; // Incremented for DSR Short Ledger & Payroll Integration
+export const CURRENT_DB_VERSION = 4; // Incremented for Ledger Sorting performance (date index)
 
 export const MASTER_SCHEMAS: Record<number, Record<string, string>> = {
   1: {
@@ -109,6 +109,54 @@ export const MASTER_SCHEMAS: Record<number, Record<string, string>> = {
     companySchemes: 'id, companyId, name, productId, isActive, isDeleted',
     hawlats: 'id, name, phone, isDeleted',
     hawlatLedgers: 'id, transactionId, referenceType, referenceId, hawlatId, isDeleted',
+    cashBook: 'id, date, type, refId, transactionId, referenceType, referenceId, isDeleted',
+    config: 'id',
+    shops: 'id, shopName, mobile, routeId, isDeleted',
+    shopLedgers: 'id, shopId, date, type, refId, transactionId, isDeleted',
+    salesTrips: 'id, tripNo, date, routeId, isDeleted',
+    expenses: 'id, date, category, routeId, isDeleted',
+    stockLedgers: 'id, productId, date, type, refId, transactionId, referenceType, referenceId, isDeleted',
+    routes: 'id, routeName, salespersonId, deliveryManId, isActive, isDeleted',
+    companyTargets: 'id, month, targetType, refId, isDeleted',
+    demandSheets: 'id, demandNo, date, businessProfileId, companyId, isDeleted',
+    businessProfiles: 'id, businessName, isDefault, isDeleted',
+    productBatches: 'id, productId, batchNo, companyId, purchaseInvoiceId, batchStatus, isDeleted',
+    dailySalesReports: 'id, date, routeId, customerId, isDeleted',
+    auditLogs: 'id, timestamp, tableName, recordId',
+    failedTransactions: 'id, timestamp, transactionName',
+    dailyKPIs: 'id, updatedAt',
+    configRegistry: 'id',
+    configurations: 'id, isDeleted',
+    brands: 'id, companyId, name, isDeleted',
+    categories: 'id, name, isDeleted',
+    salesmen: 'id, name, isActive, isDeleted',
+    deliveryMen: 'id, name, isActive, isDeleted',
+    transactionJournal: 'id, transactionDate, transactionType, referenceNo, status, isDeleted',
+    routeLedgers: 'id, transactionId, referenceType, referenceId, routeId, isDeleted',
+    commissionLedgers: 'id, transactionId, referenceType, referenceId, salesmanId, isDeleted',
+    expenseLedgers: 'id, transactionId, referenceType, referenceId, isDeleted',
+    profitLedgers: 'id, transactionId, referenceType, referenceId, isDeleted',
+    returns: 'id, returnNo, transactionId, returnType, customerId, companyId, isDeleted',
+    returnItems: 'id, returnId, productId, batchId, isDeleted',
+    dsrShortLedgers: 'id, dsrId, date, status, isDeleted',
+    dsrPayrolls: 'id, dsrId, month, paymentStatus, isDeleted'
+  },
+  4: {
+    products: 'id, sku, name, companyId, brandId, categoryId, isDeleted',
+    customers: 'id, shopName, routeId, mobile, riskLevel, isDeleted',
+    customerLedgers: 'id, transactionId, referenceType, referenceId, customerId, date, isDeleted',
+    salesInvoices: 'id, invoiceNo, routeId, salesmanId, deliveryManId, dsrId, paymentMethod, date, isDeleted',
+    salesInvoiceItems: 'id, salesId, customerId, productId, batchId, isDeleted',
+    companies: 'id, name, phone, isDeleted',
+    companyLedgers: 'id, transactionId, referenceType, referenceId, companyId, date, isDeleted',
+    purchaseInvoices: 'id, purchaseNo, companyId, date, isDeleted',
+    purchaseInvoiceItems: 'id, purchaseId, productId, batchNo, isDeleted',
+    companyDamages: 'id, companyId, productId, status, date, isDeleted',
+    companyIncentives: 'id, companyId, type, date, isDeleted',
+    companyClaims: 'id, companyId, type, status, date, isDeleted',
+    companySchemes: 'id, companyId, name, productId, isActive, isDeleted',
+    hawlats: 'id, name, phone, isDeleted',
+    hawlatLedgers: 'id, transactionId, referenceType, referenceId, hawlatId, date, isDeleted',
     cashBook: 'id, date, type, refId, transactionId, referenceType, referenceId, isDeleted',
     config: 'id',
     shops: 'id, shopName, mobile, routeId, isDeleted',
