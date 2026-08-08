@@ -6,13 +6,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const KEYSTORE_PATH = path.join(__dirname, '../android/app/release.keystore');
+const KEYSTORE_PATH = path.join(__dirname, '../android/app/release.jks');
+const LEGACY_KEYSTORE_PATH = path.join(__dirname, '../android/app/release.keystore');
 const PASSWORD = 'friends_enterprise_secret';
 const ALIAS = 'release';
 
 function generateKeystore() {
   if (fs.existsSync(KEYSTORE_PATH)) {
     console.log('Keystore already exists at:', KEYSTORE_PATH);
+    return;
+  }
+  if (fs.existsSync(LEGACY_KEYSTORE_PATH)) {
+    console.log('Migrating existing keystore from:', LEGACY_KEYSTORE_PATH);
+    fs.copyFileSync(LEGACY_KEYSTORE_PATH, KEYSTORE_PATH);
     return;
   }
 
