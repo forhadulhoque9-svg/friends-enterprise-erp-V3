@@ -1,4 +1,4 @@
-name: Build Android Release APK
+name: Build Android Debug APK
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Bypass Custom Keystore Script & Build Vite
+    - name: Build Web App
       run: npx vite build
 
     - name: Sync Capacitor Android
@@ -44,11 +44,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: cd android && chmod +x gradlew
 
-    - name: Build Release APK (Debug/Unsigned Fallback)
-      run: cd android && ./gradlew assembleRelease
+    - name: Build Debug APK
+      run: cd android && ./gradlew assembleDebug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-release-apk
-        path: android/app/build/outputs/apk/release/app-release.apk
+        name: app-debug-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
