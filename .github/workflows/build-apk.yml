@@ -27,14 +27,11 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Sync Capacitor Android First
-      run: npx cap sync android
-
     - name: Build Web App
       run: npm run build
 
-    - name: Copy Web Assets to Android
-      run: npx cap copy android
+    - name: Sync and Copy Capacitor Android
+      run: npx cap sync android
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
