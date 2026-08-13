@@ -39,12 +39,6 @@ android {
             v2SigningEnabled true
         }
         debug {
-            storeFile file('release.jks')
-            storePassword 'friends_enterprise_secret'
-            keyAlias 'release'
-            keyPassword 'friends_enterprise_secret'
-            v1SigningEnabled true
-            v2SigningEnabled true
         }
     }
     buildTypes {
