@@ -27,10 +27,10 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: Build Web App
-      run: npm run build
+    - name: Bypass Custom Keystore Script & Build Vite
+      run: npx vite build
 
-    - name: Sync and Copy Capacitor Android
+    - name: Sync Capacitor Android
       run: npx cap sync android
 
     - name: Setup Gradle
@@ -44,7 +44,7 @@ jobs:
     - name: Grant execute permission for gradlew
       run: cd android && chmod +x gradlew
 
-    - name: Build Release APK
+    - name: Build Release APK (Debug/Unsigned Fallback)
       run: cd android && ./gradlew assembleRelease
 
     - name: Upload APK Artifact
